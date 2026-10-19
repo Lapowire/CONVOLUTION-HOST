@@ -50,3 +50,10 @@ TEST(loader_swaps_without_audio_thread_allocation) {
  loader.request({f});REQUIRE(awaitReady(loader));
  {test::RealtimeGuard guard;for(int i=0;i<45;++i)loader.processWet(b);}REQUIRE(test::realtimeAllocations==0);
 }
+TEST(loader_relocates_state_by_hash_and_rejects_changed_content) {
+ test::TempDir tmp;juce::AudioBuffer<float> b(1,32);b.clear();b.setSample(0,0,0.5f);auto f=tmp.wav("Room.wav",b);auto decoded=ch::IrDecoder{}.decode({f});REQUIRE(decoded);
+ ch::IrRequest request{tmp.dir.getChildFile("old/Room.wav")};request.expectedHash=decoded.ir->hash;request.relativePath="Room.wav";request.searchRoots.add(tmp.dir.getFullPathName());
+ ch::IrLoader loader;loader.configure(48000,64,1);loader.request(request);REQUIRE(awaitReady(loader));REQUIRE(loader.status().error.isEmpty());REQUIRE(loader.status().ir);
+ juce::AudioBuffer<float> audio(1,64);audio.clear();audio.setSample(0,0,1);loader.processWet(audio);test::near(audio.getSample(0,0),0.5f);
+ b.setSample(0,0,0.75f);tmp.wav("Room.wav",b);loader.request(request);REQUIRE(awaitReady(loader));REQUIRE(loader.status().error.isNotEmpty());
+}

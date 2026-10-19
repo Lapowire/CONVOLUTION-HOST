@@ -9,6 +9,8 @@ struct IrRequest {
  double sampleRate=48000;
  double startMs=0, endMs=0, fadeInMs=0, fadeOutMs=0;
  bool normalise=false;
+ juce::String expectedHash, relativePath;
+ juce::StringArray searchRoots;
 };
 struct PreparedIr {
  juce::AudioBuffer<float> samples;

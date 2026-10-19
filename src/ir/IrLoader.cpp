@@ -1,4 +1,5 @@
 #include "IrLoader.h"
+#include "state/StateStore.h"
 #include <chrono>
 namespace ch {
 IrLoader::IrLoader():worker([this]{run();}){}
@@ -44,7 +45,14 @@ void IrLoader::run() {
    if(stopping)break;
    if(pending && live.load()<2){job=std::move(pending);pending.reset();}}
   if(!job)continue;
-  auto decoded=IrDecoder{}.decode(job->request);
+  DecodeResult decoded;
+  if(job->request.expectedHash.isNotEmpty()) {
+   SavedState saved;saved.request=job->request;saved.hash=job->request.expectedHash;saved.relativePath=job->request.relativePath;
+   const auto resolved=StateStore::resolve(saved,job->request.searchRoots);
+   if(resolved==juce::File{})decoded.error="Saved IR is missing or its content changed; locate the original WAV";
+   else {auto request=job->request;request.file=resolved;decoded=IrDecoder{}.decode(request);
+    if(decoded && decoded.ir->hash!=job->request.expectedHash){decoded.ir.reset();decoded.error="IR content changed while loading";}}
+  } else decoded=IrDecoder{}.decode(job->request);
   std::unique_ptr<ConvolutionEngine> engine;
   if(decoded && job->id==latest.load()) {
    auto mapping=job->routing.routes.empty()?RoutingModel::diagonal(job->channels,decoded.ir->samples.getNumChannels()):job->routing;
