@@ -1,6 +1,6 @@
 # Stereo Plugin Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Consegnare la prima fase della specifica: plugin mono/stereo realmente compilabile e verificato, con IR WAV, controlli DSP, libreria e GUI.
 
@@ -34,10 +34,10 @@
 
 **Interfaces:** `Route { int input, output, irChannel; float gain; }`; `RoutingModel::validate(int inputs, int outputs, int irChannels) const -> juce::Result`; modello immutabile dopo validazione.
 
-- [ ] Verificare risorse e toolchain; installare CMake e dipendenze Linux JUCE mancanti con verifica attiva. Risolvere il tag JUCE a SHA, salvarlo in `Dependencies.cmake` e verificare il checkout.
-- [ ] Configurare una libreria core e runner CTest senza dispositivo audio. Scrivere test per mono, dual mono, stereo e quattro percorsi espliciti; rifiutare indici fuori intervallo, gain non finiti e IR 4ch senza mapping.
-- [ ] Eseguire il runner con implementazione iniziale che rifiuta i modelli; osservare i fallimenti dei casi validi, quindi implementare la validazione e rieseguire.
-- [ ] Verificare con `cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug`, `cmake --build build --parallel 2`, `ctest --test-dir build --output-on-failure`; commit del task solo con test verdi.
+- [x] Verificare risorse e toolchain; installare CMake e dipendenze Linux JUCE mancanti con verifica attiva. Risolvere il tag JUCE a SHA, salvarlo in `Dependencies.cmake` e verificare il checkout.
+- [x] Configurare una libreria core e runner CTest senza dispositivo audio. Scrivere test per mono, dual mono, stereo e quattro percorsi espliciti; rifiutare indici fuori intervallo, gain non finiti e IR 4ch senza mapping.
+- [x] Eseguire il runner con implementazione iniziale che rifiuta i modelli; osservare i fallimenti dei casi validi, quindi implementare la validazione e rieseguire.
+- [x] Verificare con `cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug`, `cmake --build build --parallel 2`, `ctest --test-dir build --output-on-failure`; commit del task solo con test verdi.
 
 ## Task 2: Decodifica WAV e analisi dell'IR
 
@@ -45,10 +45,10 @@
 
 **Interfaces:** `IrRequest` contiene file, sample rate target, trim, fade e normalizzazione; `PreparedIr` contiene campioni, metadati, hash del contenuto, waveform e decadimento; `IrDecoder::decode(const IrRequest&) -> DecodeResult` con dati oppure errore.
 
-- [ ] Scrivere fixture WAV PCM/float sintetiche e test: impulso noto, ricampionamento 44,1→48 kHz, trim/fade, normalizzazione comune, file vuoto/corrotto, campioni non finiti, oltre 30 s e stima oltre budget. Verificare decadimento monotono e finito anche per silenzio.
-- [ ] Eseguire i test con decoder che restituisce errore di funzionalità assente; verificare che i casi validi falliscano.
-- [ ] Implementare decodifica e preparazione sincrone destinate esclusivamente al worker. Validare header e dimensioni prima di allocare; stimare anche FFT e doppio motore. Non attribuire significato automatico ai canali di un WAV multicanale.
-- [ ] Eseguire tutta la suite CTest, registrare i risultati e creare commit.
+- [x] Scrivere fixture WAV PCM/float sintetiche e test: impulso noto, ricampionamento 44,1→48 kHz, trim/fade, normalizzazione comune, file vuoto/corrotto, campioni non finiti, oltre 30 s e stima oltre budget. Verificare decadimento monotono e finito anche per silenzio.
+- [x] Eseguire i test con decoder che restituisce errore di funzionalità assente; verificare che i casi validi falliscano.
+- [x] Implementare decodifica e preparazione sincrone destinate esclusivamente al worker. Validare header e dimensioni prima di allocare; stimare anche FFT e doppio motore. Non attribuire significato automatico ai canali di un WAV multicanale.
+- [x] Eseguire tutta la suite CTest, registrare i risultati e creare commit.
 
 ## Task 3: Motore di convoluzione e sostituzione asincrona
 
@@ -56,10 +56,10 @@
 
 **Interfaces:** `ConvolutionEngine::prepare(double sampleRate, int maxBlockSize, int channels)`, `process(juce::AudioBuffer<float>&)`, `reset()`, `latencySamples() const -> int`; `IrLoader::request(IrRequest, RoutingModel) -> uint64_t`. Loader produce motori preparati identificati da richiesta e generazione della configurazione.
 
-- [ ] Scrivere test di convoluzione contro riferimento diretto con IR asimmetrici, tolleranza assoluta 1e-4, mono/stereo/true stereo, sample rate 44,1/48/96 kHz e blocchi 64/256/1024 e variabili. Un percorso incrociato errato deve far fallire il test.
-- [ ] Scrivere test per ultima richiesta vincente, cambio sample rate durante caricamento, conservazione del motore dopo errore e crossfade 50 ms. Fallire esplicitamente con motore iniziale pass-through.
-- [ ] Implementare percorsi JUCE DSP mono preallocati, somma della matrice, proprietà esclusiva dei motori e trasferimento tramite code bounded. Il worker raccoglie i motori ritirati; nessuna distruzione nel callback. Richieste obsolete sono scartate sul worker. Gestire preparazione quando il processing è sospeso e code piene senza bloccare.
-- [ ] Verificare latenza, coda e reset, tracciare allocazioni del thread audio nel runner; eseguire CTest e commit.
+- [x] Scrivere test di convoluzione contro riferimento diretto con IR asimmetrici, tolleranza assoluta 1e-4, mono/stereo/true stereo, sample rate 44,1/48/96 kHz e blocchi 64/256/1024 e variabili. Un percorso incrociato errato deve far fallire il test.
+- [x] Scrivere test per ultima richiesta vincente, cambio sample rate durante caricamento, conservazione del motore dopo errore e crossfade 50 ms. Fallire esplicitamente con motore iniziale pass-through.
+- [x] Implementare percorsi JUCE DSP mono preallocati, somma della matrice, proprietà esclusiva dei motori e trasferimento tramite code bounded. Il worker raccoglie i motori ritirati; nessuna distruzione nel callback. Richieste obsolete sono scartate sul worker. Gestire preparazione quando il processing è sospeso e code piene senza bloccare.
+- [x] Verificare latenza, coda e reset, tracciare allocazioni del thread audio nel runner; eseguire CTest e commit.
 
 ## Task 4: Catena audio e parametri automatizzabili
 
@@ -67,10 +67,10 @@
 
 **Interfaces:** `ReverbProcessor::prepare(double, int, int)`, `process(juce::AudioBuffer<float>&, const ParameterSnapshot&)`, `reset()`; `createParameterLayout() -> juce::AudioProcessorValueTreeState::ParameterLayout`. Identificatori stabili `inputGain`, `outputGain`, `wetGain`, `mix`, `predelay`, `width`, `eq0`…`eq9`, `highpass`, `lowpass`, `filtersEnabled`, `bypass`.
 
-- [ ] Scrivere test per dry senza IR, mix 0/100%, ritardo noto, width 0/100/200%, gain e curva EQ a ogni centro banda. Verificare filtri vicino a Nyquist, bypass allineato e campioni finiti durante automazione.
-- [ ] Eseguire i test con catena pass-through e confermare i fallimenti attesi.
-- [ ] Implementare catena e default della specifica; usare buffer e coefficienti preallocati, smoothing e tap predelay in crossfade. Non allocare coefficienti IIR per aggiornare i filtri dal callback. Conservare i rapporti dei canali.
-- [ ] Eseguire CTest, audit del callback e misura CPU/memoria con IR lungo; commit riportando macchina e condizioni di misura.
+- [x] Scrivere test per dry senza IR, mix 0/100%, ritardo noto, width 0/100/200%, gain e curva EQ a ogni centro banda. Verificare filtri vicino a Nyquist, bypass allineato e campioni finiti durante automazione.
+- [x] Eseguire i test con catena pass-through e confermare i fallimenti attesi.
+- [x] Implementare catena e default della specifica; usare buffer e coefficienti preallocati, smoothing e tap predelay in crossfade. Non allocare coefficienti IIR per aggiornare i filtri dal callback. Conservare i rapporti dei canali.
+- [x] Eseguire CTest, audit del callback e misura CPU/memoria con IR lungo; commit riportando macchina e condizioni di misura.
 
 ## Task 5: Processor plugin, libreria e stato persistente
 
@@ -78,10 +78,10 @@
 
 **Interfaces:** processor JUCE con APVTS e supporto bus mono/stereo simmetrici; `IrLibrary::scanAsync()` e snapshot dei risultati; `StateStore` serializza versione 1, parametri, hash, percorso e mapping. Preferenze globali separate tramite directory applicativa JUCE.
 
-- [ ] Scrivere test con directory temporanee per radici multiple, ricerca, preferiti, symlink ciclici e file non leggibili; test stato round-trip e rilocalizzazione con hash, rifiutando omonimi con contenuto diverso.
-- [ ] Scrivere test di istanziazione processor, layout rifiutati, audio, coda, latenza e ripristino prima/dopo `prepareToPlay`. Confermare fallimenti prima dell'implementazione.
-- [ ] Implementare scansione e caricamento cancellabili; notifiche GUI con lifetime sicuro, senza dipendere dall'esistenza dell'editor. Parser dello stato con versione e limiti; nessun accesso al disco sincrono nel callback di elaborazione.
-- [ ] Generare target VST3/Standalone con codici produttore/plugin stabili e documentati. Eseguire build, CTest e commit.
+- [x] Scrivere test con directory temporanee per radici multiple, ricerca, preferiti, symlink ciclici e file non leggibili; test stato round-trip e rilocalizzazione con hash, rifiutando omonimi con contenuto diverso.
+- [x] Scrivere test di istanziazione processor, layout rifiutati, audio, coda, latenza e ripristino prima/dopo `prepareToPlay`. Confermare fallimenti prima dell'implementazione.
+- [x] Implementare scansione e caricamento cancellabili; notifiche GUI con lifetime sicuro, senza dipendere dall'esistenza dell'editor. Parser dello stato con versione e limiti; nessun accesso al disco sincrono nel callback di elaborazione.
+- [x] Generare target VST3/Standalone con codici produttore/plugin stabili e documentati. Eseguire build, CTest e commit.
 
 ## Task 6: GUI funzionante e consegna della prima fase
 
@@ -89,10 +89,10 @@
 
 **Interfaces:** editor dipendente dal processor, APVTS attachments, snapshot immutabili per waveform e decadimento. `RoutingPanel` permette selezione esplicita dei quattro percorsi true stereo già supportati dal motore.
 
-- [ ] Scrivere smoke test dell'editor con parametri reali: controlli associati, ridimensionamento minimo, chiusura durante attività asincrona e riapertura senza perdita di stato. Eseguire il runner sotto Xvfb e osservare le funzionalità mancanti.
-- [ ] Implementare tema grafite/turchese/ambra, browser con radici e ricerca, waveform/decadimento, trim/fade/normalizzazione, predelay, mix, width, EQ e meter. File chooser asincrono, drag-and-drop, errori con rilocalizzazione; accessibilità e gesture host.
-- [ ] Compilare VST3 e Standalone, eseguire CTest e smoke GUI sotto display virtuale. Verificare un caricamento WAV e un rendering audio dal processor reale; documentare separatamente ciò che richiede ancora una DAW fisica.
-- [ ] Aggiornare README e AGENTS con comandi effettivamente verificati; riepilogare funzioni reali e limiti. Salvare installazione/avvio nell'ambiente cloud se necessario, verificando i comandi prima di salvarli. Commit della consegna e pubblicazione sul remoto richiesto.
+- [x] Scrivere smoke test dell'editor con parametri reali: controlli associati, ridimensionamento minimo, chiusura durante attività asincrona e riapertura senza perdita di stato. Eseguire il runner sotto Xvfb e osservare le funzionalità mancanti.
+- [x] Implementare tema grafite/turchese/ambra, browser con radici e ricerca, waveform/decadimento, trim/fade/normalizzazione, predelay, mix, width, EQ e meter. File chooser asincrono, drag-and-drop, errori con rilocalizzazione; accessibilità e gesture host.
+- [x] Compilare VST3 e Standalone, eseguire CTest e smoke GUI sotto display virtuale. Verificare un caricamento WAV e un rendering audio dal processor reale; documentare separatamente ciò che richiede ancora una DAW fisica.
+- [x] Aggiornare README e AGENTS con comandi effettivamente verificati; riepilogare funzioni reali e limiti. Salvare installazione/avvio nell'ambiente cloud se necessario, verificando i comandi prima di salvarli. Commit della consegna; pubblicazione sul remoto dopo la revisione finale (integrazione separata).
 
 ## Fasi successive preservate
 
@@ -101,3 +101,7 @@ Terminata la base stereo, preparare piani separati per: matrice fino a 16 canali
 ## Revisione del piano
 
 Coperti tutti i requisiti della prima fase della specifica. Le fasi 2–3 restano esplicitamente separate; non sono omissioni della roadmap. I rischi di review sono associati ai test dei task indicati. Esecuzione proposta: inline nella sessione, mantenendo checkpoint e commit per ogni task; nessun subagente richiesto per l'implementazione.
+
+## Evidenza di esecuzione
+
+Prima fase implementata: build Release VST3/Standalone su Debian Linux, 34 test core e 5 test processor/GUI superati. Setup cloud eseguito due volte, istruzioni install/start salvate in bozza. La revisione finale e la pubblicazione Git seguono la consegna locale. Il piano è stato precisato per includere quattro WAV mono separati e per usare FFTW evitando allocazioni del backend FFT di ripiego. Nessuna certificazione DAW o audio hardware è implicata.

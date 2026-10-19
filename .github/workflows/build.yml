@@ -1,0 +1,27 @@
+name: Linux plugin and DSP tests
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Install JUCE system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake libasound2-dev libx11-dev libxext-dev libxinerama-dev libxrandr-dev libxcursor-dev libfreetype6-dev libfontconfig1-dev libfftw3-dev xvfb
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+      - name: Build VST3, Standalone and tests
+        run: cmake --build build --parallel 2
+      - name: Test DSP, state and editor
+        run: xvfb-run -a ctest --test-dir build --output-on-failure
+      - name: Archive Linux builds and GUI preview
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: convolution-host-linux
+          path: |
+            build/ConvolutionHost_artefacts/Release/VST3/
+            build/ConvolutionHost_artefacts/Release/Standalone/
+            build/ui-preview.png

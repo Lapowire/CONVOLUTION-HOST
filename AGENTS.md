@@ -41,6 +41,14 @@ Leggere `docs/superpowers/specs/2026-10-19-convolution-host-design.md` prima di 
 - Diagnosticare i problemi prima di correggerli. Non disabilitare test o controlli di sicurezza per ottenere un risultato positivo.
 - Non garantire assenza assoluta di errori. Dichiarare limiti e prerequisiti non verificati con precisione.
 
-## Stato iniziale
+## Build e test disponibili
 
-Non esistono ancora sorgenti, target CMake o test. Non inventare comandi di build come se fossero già disponibili. Aggiornare questa sezione con i comandi realmente verificati quando vengono implementati.
+- Dipendenze: CMake ≥3.22, C++20, JUCE 8.0.6 a commit e archivio SHA-256 fissati. Su piattaforme non Apple è richiesto FFTW3f collegato direttamente; non usare il fallback JUCE FFT nel callback, perché può allocare scratch e acquisire un lock.
+- Configurazione: `cmake -S . -B build -DCMAKE_BUILD_TYPE=Release`.
+- Compilazione: `cmake --build build --parallel 2`.
+- Suite: `xvfb-run -a ctest --test-dir build --output-on-failure` su Linux senza display; con un display disponibile usare direttamente CTest.
+- Ambiente cloud Debian senza root: eseguire `bash scripts/setup-cloud.sh`, poi `source /workspace/toolchain/activate.sh`. I pacchetti Debian vanno verificati attraverso indici firmati, non estratti da download arbitrari.
+- `ch_tests` verifica il core offline; `ch_plugin_tests` verifica processor, stato e GUI e genera `build/ui-preview.png`. Il runner stampa il conteggio dei casi effettivamente eseguiti.
+- Su Linux i test intercettano anche le allocazioni C raggiungibili dal linker; le chiamate interne alle librerie dinamiche richiedono audit separato.
+- I target attuali sono VST3 e Standalone mono/stereo, inclusi quattro percorsi true stereo. Multicanale immersivo, AmbiX, AU, AAX e CLAP restano fasi successive; non dichiararli implementati.
+- In questo repository le build Linux e i test sono stati eseguiti. Verificare nuovamente i comandi dopo ogni modifica; non dedurre da queste prove il funzionamento su macOS/Windows o in tutte le DAW.
