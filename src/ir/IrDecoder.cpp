@@ -17,6 +17,8 @@ DecodeResult finish(std::shared_ptr<PreparedIr> ir, const IrRequest &req)
     const auto end = req.endMs > 0 ? std::int64_t(std::llround(req.endMs * req.sampleRate / 1000)) : fullN;
     if (start < 0 || end > fullN || end <= start)
         return fail("IR trim must select a non-empty region inside the file");
+    ir->sourceDurationSeconds = fullN / req.sampleRate;
+    ir->sourceStartMs = double(start) * 1000 / req.sampleRate;
     const int n = int(end - start);
     if (start != 0 || n != fullN)
     {

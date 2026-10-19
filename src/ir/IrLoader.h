@@ -24,6 +24,7 @@ class IrLoader
     // configure/reset require audio processing to be suspended by the caller.
     void configure(double sampleRate, int blockSize, int channels);
     std::uint64_t request(IrRequest, RoutingModel = {});
+    std::uint64_t clear();
     void processWet(juce::AudioBuffer<float> &) noexcept;
     void reset() noexcept;
     bool hasActive() const noexcept { return activeFlag.load(std::memory_order_acquire); }
@@ -56,7 +57,7 @@ class IrLoader
     double rate = 48000;
     int blockSize = 512, channelCount = 2;
     bool stopping = false;
-    std::atomic<std::uint64_t> latest{0}, generation{1}, accepted{0}, readyId{0};
+    std::atomic<std::uint64_t> latest{0}, generation{1}, accepted{0}, readyId{0}, clearRequest{0};
     std::atomic<Packet *> ready{nullptr};
     Packet *active = nullptr;
     Packet *fading = nullptr;

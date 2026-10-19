@@ -59,17 +59,18 @@ juce::AudioProcessorEditor *PluginProcessor::createEditor()
 }
 SavedState PluginProcessor::selectedState() const
 {
+    auto status = reverb.loader().status();
     SavedState state;
     {
         std::lock_guard lock(stateMutex);
+        if (status.ir && !status.loading && status.error.isEmpty() &&
+            status.requestId == submittedRequest.load() && status.ir->file == selected.request.file)
+        {
+            // Keep verified identity durable while a later edit is pending or fails.
+            selected.hash = status.ir->hash;
+            selected.request.sourceHashes = status.ir->sourceHashes;
+        }
         state = selected;
-    }
-    auto status = reverb.loader().status();
-    if (status.ir && !status.loading && status.error.isEmpty() &&
-        status.requestId == submittedRequest.load() && status.ir->file == state.request.file)
-    {
-        state.hash = status.ir->hash;
-        state.request.sourceHashes = status.ir->sourceHashes;
     }
     state.request.startMs = refs.values[10]->load();
     state.request.endMs = refs.values[11]->load();
@@ -99,6 +100,7 @@ void PluginProcessor::setStateInformation(const void *data, int size)
         std::lock_guard lock(stateMutex);
         selected = std::move(state);
     }
+    selectionRevision.fetch_add(1);
     irDirty.store(false);
     if (prepared.load())
         submit();
@@ -125,6 +127,7 @@ void PluginProcessor::loadIr(const juce::File &file, RoutingModel routing)
             }
         }
     }
+    selectionRevision.fetch_add(1);
     if (prepared.load())
         submit();
 }
@@ -159,6 +162,7 @@ void PluginProcessor::loadTrueStereo(const std::array<juce::File, 4> &files, Rou
                 selected.request.additionalRelativePaths.add(relative);
         }
     }
+    selectionRevision.fetch_add(1);
     if (prepared.load())
         submit();
 }
@@ -168,6 +172,7 @@ void PluginProcessor::setRouting(RoutingModel model)
         std::lock_guard lock(stateMutex);
         selected.routing = std::move(model);
     }
+    selectionRevision.fetch_add(1);
     if (prepared.load())
         submit();
 }
@@ -180,7 +185,10 @@ void PluginProcessor::submit()
 {
     auto state = selectedState();
     if (state.request.file == juce::File{})
+    {
+        submittedRequest.store(reverb.loader().clear());
         return;
+    }
     state.request.expectedHash = state.hash;
     state.request.relativePath = state.relativePath;
     state.request.searchRoots = library.rootPaths();

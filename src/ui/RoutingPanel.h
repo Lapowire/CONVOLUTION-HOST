@@ -3,15 +3,24 @@
 #include "plugin/PluginProcessor.h"
 namespace ch
 {
-class RoutingPanel : public juce::Component
+class RoutingPanel : public juce::Component, private juce::Timer
 {
   public:
     explicit RoutingPanel(PluginProcessor &);
+    ~RoutingPanel() override { stopTimer(); }
     void paint(juce::Graphics &) override;
     void resized() override;
 
   private:
     void chooseSource(int);
+    void refreshFromState();
+    void timerCallback() override
+    {
+        if (shownRevision != processor.selectionVersion())
+            refreshFromState();
+    }
+    std::uint64_t shownRevision = 0;
+    std::array<float, 4> polarities{1, 1, 1, 1};
     void updateMode();
     int rowHeight() const { return std::min(24, std::max(18, (getHeight() - 60) / 4)); }
     PluginProcessor &processor;

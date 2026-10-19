@@ -21,7 +21,7 @@ IrLibrary::IrLibrary(juce::File p) : preferences(std::move(p))
                     favourites.insert(f.toString());
         }
         else
-            data.error = "Library preferences could not be read";
+            persistenceError = "Library preferences could not be read";
     }
     worker = std::thread([this] { run(); });
     scanAsync();
@@ -82,6 +82,8 @@ IrLibrary::Snapshot IrLibrary::snapshot(const juce::String &query, bool favourit
 {
     std::lock_guard lock(mutex);
     auto result = data;
+    if (persistenceError.isNotEmpty())
+        result.error += (result.error.isEmpty() ? "" : "\n") + persistenceError;
     result.entries.erase(std::remove_if(result.entries.begin(), result.entries.end(),
                                         [&](const Entry &e)
                                         {
@@ -99,7 +101,7 @@ juce::StringArray IrLibrary::rootPaths() const
         out.add(r.directory.getFullPathName());
     return out;
 }
-void IrLibrary::save() const
+void IrLibrary::save()
 {
     if (preferences == juce::File{})
         return;
@@ -120,11 +122,26 @@ void IrLibrary::save() const
     o->setProperty("version", 1);
     o->setProperty("roots", roots);
     o->setProperty("favourites", favs);
-    if (preferences.getParentDirectory().createDirectory())
-        preferences.replaceWithText(juce::JSON::toString(juce::var(o)));
-    else
+    const juce::var document(o);
+    bool saved = false;
+    if (!preferences.isDirectory() && preferences.getParentDirectory().createDirectory())
     {
-        juce::var cleanup(o);
+        juce::TemporaryFile temporary(preferences);
+        {
+            juce::FileOutputStream stream(temporary.getFile());
+            if (stream.openedOk())
+            {
+                saved = stream.writeText(juce::JSON::toString(document), false, false, "\n");
+                stream.flush();
+                saved = saved && stream.getStatus().wasOk();
+            }
+        }
+        saved = saved && temporary.overwriteTargetFileWithTemporary();
+    }
+    {
+        std::lock_guard lock(mutex);
+        persistenceError = saved ? juce::String{} : juce::String("Could not save library preferences");
+        uiVersion.fetch_add(1);
     }
 }
 void IrLibrary::run()
@@ -138,52 +155,72 @@ void IrLibrary::run()
             std::this_thread::sleep_for(std::chrono::milliseconds(5));
             continue;
         }
-        std::vector<Root> roots;
+        try
         {
-            std::lock_guard lock(mutex);
-            roots = data.roots;
-        }
-        std::vector<Entry> entries;
-        std::set<juce::String> seen;
-        juce::String error;
-        for (const auto &root : roots)
-        {
-            if (!root.directory.isDirectory() || !root.directory.hasReadAccess())
+            std::vector<Root> roots;
             {
-                error = "A configured library directory is missing or unreadable";
-                continue;
+                std::lock_guard lock(mutex);
+                roots = data.roots;
             }
-            for (const auto &entry : juce::RangedDirectoryIterator(
-                     root.directory, true, "*", juce::File::findFiles, juce::File::FollowSymlinks::no))
+            std::vector<Entry> entries;
+            std::set<juce::String> seen;
+            juce::String error;
+            for (const auto &root : roots)
             {
-                if (stop.load() || revision.load() != ticket)
-                    break;
-                const auto file = entry.getFile();
-                if (file.hasFileExtension("wav") && file.hasReadAccess() &&
-                    seen.insert(file.getFullPathName()).second)
-                    entries.push_back({file, root.user, false});
-                if (entries.size() >= 100000)
+                if (!root.directory.isDirectory() || !root.directory.hasReadAccess())
                 {
-                    error = "Library scan reached the 100000 file limit";
+                    error = "A configured library directory is missing or unreadable";
+                    continue;
+                }
+                for (const auto &entry : juce::RangedDirectoryIterator(
+                         root.directory, true, "*", juce::File::findFiles, juce::File::FollowSymlinks::no))
+                {
+                    if (stop.load() || revision.load() != ticket)
+                        break;
+                    const auto file = entry.getFile();
+                    if (file.hasFileExtension("wav") && file.hasReadAccess() &&
+                        seen.insert(file.getFullPathName()).second)
+                        entries.push_back({file, root.user, false});
+                    if (entries.size() >= 100000)
+                    {
+                        error = "Library scan reached the 100000 file limit";
+                        break;
+                    }
+                }
+                if (stop.load() || revision.load() != ticket || entries.size() >= 100000)
                     break;
+            }
+            std::sort(entries.begin(), entries.end(), [](const Entry &a, const Entry &b)
+                      { return a.file.getFullPathName().compareIgnoreCase(b.file.getFullPathName()) < 0; });
+            {
+                std::lock_guard lock(mutex);
+                if (revision.load() == ticket)
+                {
+                    for (auto &e : entries)
+                        e.favourite = favourites.count(e.file.getFullPathName()) > 0;
+                    data.entries = std::move(entries);
+                    data.error = error;
+                    data.scanning = false;
+                    completed = ticket;
+                    uiVersion.fetch_add(1);
                 }
             }
-            if (stop.load() || revision.load() != ticket || entries.size() >= 100000)
-                break;
         }
-        std::sort(entries.begin(), entries.end(), [](const Entry &a, const Entry &b)
-                  { return a.file.getFullPathName().compareIgnoreCase(b.file.getFullPathName()) < 0; });
+        catch (...)
         {
-            std::lock_guard lock(mutex);
-            if (revision.load() == ticket)
+            try
             {
-                for (auto &e : entries)
-                    e.favourite = favourites.count(e.file.getFullPathName()) > 0;
-                data.entries = std::move(entries);
-                data.error = error;
-                data.scanning = false;
-                completed = ticket;
-                uiVersion.fetch_add(1);
+                std::lock_guard lock(mutex);
+                if (revision.load() == ticket)
+                {
+                    data.error = "Library scan failed: insufficient memory or directory error";
+                    data.scanning = false;
+                    completed = ticket;
+                    uiVersion.fetch_add(1);
+                }
+            }
+            catch (...)
+            {
             }
         }
     }

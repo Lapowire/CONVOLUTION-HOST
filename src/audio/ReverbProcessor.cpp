@@ -49,7 +49,7 @@ void ReverbProcessor::prepare(double sr, int maxBlockSize, int channels)
     delay.setSize(channels, int(sr * 0.5) + 2);
     delay.clear();
     writePosition = 0;
-    delayOld = delayNew = 0;
+    delayOld = delayNew = delayDesired = 0;
     delayBlend = 1;
     initial = true;
     for (auto &s : smooth)
@@ -102,15 +102,9 @@ void ReverbProcessor::process(juce::AudioBuffer<float> &buffer, const ParameterS
     for (auto &f : filters)
         if (initial)
             f.current = f.target;
-    const float requestedDelay = bounded(p.predelay, 0, 500, 0) * float(rate / 1000);
+    delayDesired = bounded(p.predelay, 0, 500, 0) * float(rate / 1000);
     if (initial)
-        delayOld = delayNew = requestedDelay;
-    else if (requestedDelay != delayNew)
-    {
-        delayOld += (delayNew - delayOld) * delayBlend;
-        delayNew = requestedDelay;
-        delayBlend = 0;
-    }
+        delayOld = delayNew = delayDesired;
     initial = false;
     float inPeak = 0, outPeak = 0;
     for (int offset = 0; offset < buffer.getNumSamples(); offset += blockSize)
@@ -120,6 +114,14 @@ void ReverbProcessor::process(juce::AudioBuffer<float> &buffer, const ParameterS
             original.copyFrom(c, 0, buffer, c, offset, n);
         for (int i = 0; i < n; ++i)
         {
+            // Finish the current signal crossfade before starting the latest queued target.
+            // A weighted average of delay positions is not a blend of the delayed signals.
+            if (delayBlend >= 1 && delayDesired != delayNew)
+            {
+                delayOld = delayNew;
+                delayNew = delayDesired;
+                delayBlend = 0;
+            }
             const float gain = smooth[0].getNextValue();
             auto tap = [this](int c, float d) noexcept
             {

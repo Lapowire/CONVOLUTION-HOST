@@ -36,6 +36,7 @@ class PluginProcessor final : public juce::AudioProcessor,
     void loadTrueStereo(const std::array<juce::File, 4> &, RoutingModel = {});
     void setRouting(RoutingModel);
     SavedState selectedState() const;
+    std::uint64_t selectionVersion() const noexcept { return selectionRevision.load(); }
     void servicePendingChanges();
     juce::AudioProcessorValueTreeState parameters;
     ReverbProcessor reverb;
@@ -50,7 +51,8 @@ class PluginProcessor final : public juce::AudioProcessor,
     void submit();
     ParameterRefs refs;
     mutable std::mutex stateMutex;
-    SavedState selected;
+    mutable SavedState selected;
+    std::atomic<std::uint64_t> selectionRevision{1};
     std::atomic<std::uint64_t> submittedRequest{0};
     std::atomic<bool> irDirty{false}, prepared{false};
 };

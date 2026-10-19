@@ -1,6 +1,12 @@
 #include "TestSupport.h"
-int main()
+namespace test
 {
+int runWorkerAllocationProbe();
+}
+int main(int argc, char **argv)
+{
+    if (argc > 1 && std::string(argv[1]) == "--worker-allocation-probe")
+        return test::runWorkerAllocationProbe();
     int failed = 0;
     for (const auto &t : test::cases())
     {

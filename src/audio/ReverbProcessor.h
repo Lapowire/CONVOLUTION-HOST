@@ -37,7 +37,7 @@ class ReverbProcessor
     std::array<juce::SmoothedValue<float>, 7> smooth;
     double rate = 48000;
     int blockSize = 512, channelCount = 2, writePosition = 0;
-    float delayOld = 0, delayNew = 0, delayBlend = 1;
+    float delayOld = 0, delayNew = 0, delayDesired = 0, delayBlend = 1;
     bool initial = true;
 };
 } // namespace ch

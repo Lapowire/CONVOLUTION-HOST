@@ -208,3 +208,27 @@ TEST(long_ir_resource_measurement)
     std::cout << "MEASURE 30s/96kHz stereo, 101x256 blocks: " << ms << " ms; conservative two-engine bound "
               << ch::IrDecoder::estimateBytes(2880000, 2, 256) / 1024 / 1024 << " MiB\n";
 }
+TEST(rapid_predelay_retargeting_keeps_sine_continuous)
+{
+    test::TempDir tmp;
+    ch::ReverbProcessor p;
+    initReverb(p, tmp, 1);
+    ch::ParameterSnapshot params;
+    params.mix = 100;
+    juce::AudioBuffer<float> audio(1, 64);
+    int position = 0;
+    float previous = 0, maxJump = 0;
+    for (int block = 0; block < 800; ++block)
+    {
+        if (block >= 400)
+            params.predelay = block % 2 ? 13 : 0;
+        for (int i = 0; i < 64; ++i)
+            audio.setSample(0, i,
+                            float(std::sin(2 * juce::MathConstants<double>::pi * 100 * position++ / 48000)));
+        p.process(audio, params);
+        if (block >= 400)
+            maxJump = std::max(maxJump, std::abs(audio.getSample(0, 0) - previous));
+        previous = audio.getSample(0, 63);
+    }
+    REQUIRE(maxJump < 0.05f);
+}

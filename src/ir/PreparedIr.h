@@ -20,6 +20,7 @@ struct PreparedIr
 {
     juce::AudioBuffer<float> samples;
     double sampleRate = 48000, originalSampleRate = 48000;
+    double sourceDurationSeconds = 0, sourceStartMs = 0;
     juce::File file;
     juce::String hash;
     juce::StringArray sourceHashes;

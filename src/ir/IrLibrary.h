@@ -38,11 +38,12 @@ class IrLibrary
     std::uint64_t version() const noexcept { return uiVersion.load(); }
 
   private:
-    void save() const;
+    void save();
     void run();
     juce::File preferences;
     mutable std::mutex mutex;
     Snapshot data;
+    juce::String persistenceError;
     std::set<juce::String> favourites;
     std::atomic<std::uint64_t> uiVersion{0};
     std::atomic<bool> stop{false};

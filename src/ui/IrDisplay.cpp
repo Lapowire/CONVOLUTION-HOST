@@ -26,6 +26,10 @@ void IrDisplay::paint(juce::Graphics &g)
                    20, juce::Justification::centred);
         return;
     }
+    const float sourceDuration = float(std::max(impulse->sourceDurationSeconds, impulse->durationSeconds()));
+    const auto dataRegion =
+        r.withLeft(r.getX() + r.getWidth() * float(impulse->sourceStartMs / 1000) / sourceDuration)
+            .withWidth(r.getWidth() * float(impulse->durationSeconds()) / sourceDuration);
     if (decay)
     {
         for (int d = 0; d <= 4; ++d)
@@ -41,8 +45,8 @@ void IrDisplay::paint(juce::Graphics &g)
         juce::Path p;
         for (std::size_t i = 0; i < impulse->decayDb.size(); ++i)
         {
-            float x = r.getX() +
-                      r.getWidth() * float(i) / float(std::max(std::size_t(1), impulse->decayDb.size() - 1));
+            float x = dataRegion.getX() + dataRegion.getWidth() * float(i) /
+                                              float(std::max(std::size_t(1), impulse->decayDb.size() - 1));
             float y = r.getY() + r.getHeight() * juce::jlimit(0.f, 1.f, -impulse->decayDb[i] / 120);
             if (i == 0)
                 p.startNewSubPath(x, y);
@@ -57,7 +61,8 @@ void IrDisplay::paint(juce::Graphics &g)
         const int channels = impulse->samples.getNumChannels();
         for (int c = 0; c < channels; ++c)
         {
-            auto lane = r.withY(r.getY() + r.getHeight() * c / channels).withHeight(r.getHeight() / channels);
+            auto lane = dataRegion.withY(r.getY() + r.getHeight() * c / channels)
+                            .withHeight(r.getHeight() / channels);
             const auto &bins = impulse->channelWaveforms.empty() ? impulse->waveform
                                                                  : impulse->channelWaveforms[std::size_t(c)];
             g.setColour(ui::line);
@@ -84,7 +89,7 @@ void IrDisplay::paint(juce::Graphics &g)
             g.fillPath(p);
         }
     }
-    const float duration = float(impulse->durationSeconds() * 1000),
+    const float duration = float(std::max(impulse->sourceDurationSeconds, impulse->durationSeconds()) * 1000),
                 a = juce::jlimit(0.f, 1.f, trimStart / duration),
                 b = trimEnd > 0 ? juce::jlimit(a, 1.f, trimEnd / duration) : 1.f;
     g.setColour(ui::background.withAlpha(0.7f));
@@ -110,7 +115,7 @@ void IrDisplay::mouseUp(const juce::MouseEvent &e)
     float end = juce::jlimit(0.f, 1.f, (e.position.x - plot().getX()) / plot().getWidth());
     if (std::abs(end - dragStart) < 0.005f)
         return;
-    float duration = float(impulse->durationSeconds() * 1000);
+    float duration = float(std::max(impulse->sourceDurationSeconds, impulse->durationSeconds()) * 1000);
     onSelection(std::min(dragStart, end) * duration, std::max(dragStart, end) * duration);
 }
 } // namespace ch

@@ -88,6 +88,20 @@ std::uint64_t IrLoader::request(IrRequest req, RoutingModel routing)
     wake.notify_one();
     return id;
 }
+std::uint64_t IrLoader::clear()
+{
+    std::uint64_t id;
+    {
+        std::lock_guard lock(mutex);
+        id = latest.fetch_add(1) + 1;
+        pending.reset();
+        current = Status{};
+        current.requestId = id;
+        clearRequest.store(id, std::memory_order_release);
+    }
+    wake.notify_one();
+    return id;
+}
 IrLoader::Status IrLoader::status() const
 {
     std::lock_guard lock(mutex);
@@ -97,87 +111,120 @@ void IrLoader::run()
 {
     for (;;)
     {
-        collect();
-        // Only the worker publishes; inspect the separate id, never an unowned pointer.
-        if (readyId.load() != latest.load())
-            destroy(ready.exchange(nullptr, std::memory_order_acq_rel));
         std::optional<Job> job;
+        try
         {
-            std::unique_lock lock(mutex);
-            wake.wait_for(lock, std::chrono::milliseconds(3),
-                          [this] { return stopping || (pending && live.load() < 2); });
-            if (stopping)
-                break;
-            if (pending && live.load() < 2)
+            collect();
+            // Only the worker publishes; inspect the separate id, never an unowned pointer.
+            if (readyId.load() != latest.load())
+                destroy(ready.exchange(nullptr, std::memory_order_acq_rel));
             {
-                job = std::move(pending);
-                pending.reset();
-            }
-        }
-        if (!job)
-            continue;
-        DecodeResult decoded;
-        if (job->request.expectedHash.isNotEmpty())
-        {
-            SavedState saved;
-            saved.request = job->request;
-            saved.hash = job->request.expectedHash;
-            saved.relativePath = job->request.relativePath;
-            const auto resolved = StateStore::resolveRequest(saved, job->request.searchRoots);
-            if (!resolved)
-                decoded.error = "Saved IR is missing or its content changed; locate the original WAV";
-            else
-            {
-                decoded = IrDecoder{}.decode(*resolved);
-                if (decoded && decoded.ir->hash != job->request.expectedHash)
+                std::unique_lock lock(mutex);
+                wake.wait_for(lock, std::chrono::milliseconds(3),
+                              [this] { return stopping || (pending && live.load() < 2); });
+                if (stopping)
+                    break;
+                if (pending && live.load() < 2)
                 {
-                    decoded.ir.reset();
-                    decoded.error = "IR content changed while loading";
+                    job = std::move(pending);
+                    pending.reset();
+                }
+            }
+            if (!job)
+                continue;
+            DecodeResult decoded;
+            if (job->request.expectedHash.isNotEmpty())
+            {
+                SavedState saved;
+                saved.request = job->request;
+                saved.hash = job->request.expectedHash;
+                saved.relativePath = job->request.relativePath;
+                const auto resolved = StateStore::resolveRequest(saved, job->request.searchRoots);
+                if (!resolved)
+                    decoded.error = "Saved IR is missing or its content changed; locate the original WAV";
+                else
+                {
+                    decoded = IrDecoder{}.decode(*resolved);
+                    if (decoded && decoded.ir->hash != job->request.expectedHash)
+                    {
+                        decoded.ir.reset();
+                        decoded.error = "IR content changed while loading";
+                    }
+                }
+            }
+            else
+                decoded = IrDecoder{}.decode(job->request);
+            std::unique_ptr<ConvolutionEngine> engine;
+            if (decoded && job->id == latest.load())
+            {
+                auto mapping =
+                    job->routing.routes.empty()
+                        ? RoutingModel::diagonal(job->channels, decoded.ir->samples.getNumChannels())
+                        : job->routing;
+                try
+                {
+                    engine = std::make_unique<ConvolutionEngine>(decoded.ir, std::move(mapping));
+                    engine->prepare(job->rate, job->block, job->channels);
+                }
+                catch (const std::exception &e)
+                {
+                    decoded.error = juce::String::fromUTF8(e.what());
+                    engine.reset();
+                }
+            }
+            if (job->id != latest.load() || job->generation != generation.load())
+                continue;
+            if (engine)
+            {
+                auto *p = new Packet{std::move(engine), job->id, job->generation};
+                live.fetch_add(1, std::memory_order_release);
+                readyId.store(job->id);
+                destroy(ready.exchange(p, std::memory_order_acq_rel));
+            }
+            {
+                std::lock_guard lock(mutex);
+                if (job->id == latest.load())
+                {
+                    current.loading = false;
+                    current.error = decoded.error;
+                    if (decoded.error.isEmpty() && decoded.ir)
+                        current.ir = std::move(decoded.ir);
                 }
             }
         }
-        else
-            decoded = IrDecoder{}.decode(job->request);
-        std::unique_ptr<ConvolutionEngine> engine;
-        if (decoded && job->id == latest.load())
+        catch (...)
         {
-            auto mapping = job->routing.routes.empty()
-                               ? RoutingModel::diagonal(job->channels, decoded.ir->samples.getNumChannels())
-                               : job->routing;
+            // Every allocation on this worker is inside the boundary, including Packet publication.
+            // Reporting must also tolerate sustained memory exhaustion without terminating the host.
             try
             {
-                engine = std::make_unique<ConvolutionEngine>(decoded.ir, std::move(mapping));
-                engine->prepare(job->rate, job->block, job->channels);
+                std::lock_guard lock(mutex);
+                if (job && job->id == latest.load())
+                {
+                    current.loading = false;
+                    current.error = "IR preparation failed: insufficient memory or decoder error";
+                }
             }
-            catch (const std::exception &e)
+            catch (...)
             {
-                decoded.error = juce::String::fromUTF8(e.what());
-                engine.reset();
-            }
-        }
-        if (job->id != latest.load() || job->generation != generation.load())
-            continue;
-        if (engine)
-        {
-            auto *p = new Packet{std::move(engine), job->id, job->generation};
-            live.fetch_add(1, std::memory_order_release);
-            readyId.store(job->id);
-            destroy(ready.exchange(p, std::memory_order_acq_rel));
-        }
-        {
-            std::lock_guard lock(mutex);
-            if (job->id == latest.load())
-            {
-                current.loading = false;
-                current.error = decoded.error;
-                if (decoded.error.isEmpty() && decoded.ir)
-                    current.ir = std::move(decoded.ir);
             }
         }
     }
 }
 void IrLoader::processWet(juce::AudioBuffer<float> &buffer) noexcept
 {
+    auto clearing = clearRequest.load(std::memory_order_acquire);
+    if (clearing != 0 && clearing == latest.load(std::memory_order_acquire))
+    {
+        if (active && retire(active))
+            active = nullptr;
+        if (fading && retire(fading))
+            fading = nullptr;
+        activeFlag.store(false, std::memory_order_release);
+        duration.store(0);
+        accepted.store(0);
+        clearRequest.compare_exchange_strong(clearing, 0);
+    }
     if (fading && fadePosition >= fadeLength && retire(fading))
         fading = nullptr;
     if (!fading)

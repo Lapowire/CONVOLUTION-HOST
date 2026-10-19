@@ -58,3 +58,25 @@ TEST(library_does_not_follow_symlink_cycles_and_can_be_destroyed_scanning)
     waitLibrary(missing);
     REQUIRE(missing.snapshot().error.isNotEmpty());
 }
+TEST(preference_write_failure_is_visible_after_rescans)
+{
+    test::TempDir tmp;
+    auto target = tmp.dir.getChildFile("directory-instead-of-file");
+    REQUIRE(target.createDirectory());
+    ch::IrLibrary library(target);
+    library.addRoot(tmp.dir, true);
+    waitLibrary(library);
+    REQUIRE(library.snapshot().error.isNotEmpty());
+    REQUIRE(target.isDirectory());
+    library.scanAsync();
+    waitLibrary(library);
+    REQUIRE(library.snapshot().error.isNotEmpty());
+    REQUIRE(target.isDirectory());
+    auto parentFile = tmp.dir.getChildFile("regular-file");
+    REQUIRE(parentFile.replaceWithText("preserve me"));
+    ch::IrLibrary blocked(parentFile.getChildFile("prefs.json"));
+    blocked.addRoot(tmp.dir, true);
+    waitLibrary(blocked);
+    REQUIRE(blocked.snapshot().error.isNotEmpty());
+    REQUIRE(parentFile.loadFileAsString() == "preserve me");
+}

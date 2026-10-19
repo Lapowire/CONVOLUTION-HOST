@@ -104,4 +104,4 @@ Coperti tutti i requisiti della prima fase della specifica. Le fasi 2–3 restan
 
 ## Evidenza di esecuzione
 
-Prima fase implementata: build Release VST3/Standalone su Debian Linux, 34 test core e 5 test processor/GUI superati. Setup cloud eseguito due volte, istruzioni install/start salvate in bozza. La revisione finale e la pubblicazione Git seguono la consegna locale. Il piano è stato precisato per includere quattro WAV mono separati e per usare FFTW evitando allocazioni del backend FFT di ripiego. Nessuna certificazione DAW o audio hardware è implicata.
+Prima fase implementata: build Release VST3/Standalone su Debian Linux, 37 test core e 10 test processor/GUI superati dopo le correzioni della revisione indipendente. Setup cloud eseguito due volte, istruzioni install/start salvate in bozza. Risultati e limiti sono documentati in `docs/development-status.md`. Il piano è stato precisato per includere quattro WAV mono separati e per usare FFTW evitando allocazioni del backend FFT di ripiego. Nessuna certificazione DAW o audio hardware è implicata.

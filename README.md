@@ -69,6 +69,8 @@ Le modifiche di trim/fade/normalizzazione richiedono una preparazione asincrona 
 
 ## Verifica e limiti attuali
 
+La build Release Linux supera 47 casi di test (37 core e 10 processor/GUI). Risultati, correzioni della revisione e problemi minori ancora aperti sono elencati nello [stato di sviluppo](docs/development-status.md).
+
 I test confrontano l'audio con una convoluzione diretta, provano routing e isolamento dei canali, sample rate e blocchi variabili, EQ, predelay, file corrotti, caricamenti concorrenti, sostituzioni, stato, rilocalizzazione e GUI ridimensionabile. I controlli di `new/delete` e, su Linux, di `malloc/calloc/realloc/free` intercettabili dal linker sul thread di test integrano l'audit del callback; non equivalgono a un analizzatore completo delle chiamate interne alle librerie dinamiche. Il test dell'editor produce `build/ui-preview.png` con un IR sintetico.
 
 VST3 e Standalone sono i target di questa fase. Multicanale immersivo, AmbiX, CLAP, AU e AAX restano nella roadmap: non vengono simulati tramite un bus stereo. AU richiede macOS; AAX richiede SDK Avid e condizioni di distribuzione appropriate. Bed/oggetti Atmos saranno elaborati come canali esposti dalla DAW, mantenendo metadati e rendering nell'host.

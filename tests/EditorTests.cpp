@@ -1,6 +1,8 @@
 #include "TestSupport.h"
 #include "WavFixtures.h"
 #include "plugin/PluginProcessor.h"
+#include "ui/IrDisplay.h"
+#include "ui/RoutingPanel.h"
 #include <juce_graphics/juce_graphics.h>
 #include <juce_gui_basics/juce_gui_basics.h>
 static juce::Component *findControl(juce::Component &parent, const juce::String &id)
@@ -74,4 +76,64 @@ TEST(editor_all_pages_fit_at_minimum_size_and_disable_nyquist_bands)
     auto *high = findControl(*editor, "eq9");
     REQUIRE(high);
     REQUIRE(!high->isEnabled());
+}
+TEST(sparse_routing_apply_and_open_editor_state_changes_preserve_assignments)
+{
+    ch::PluginProcessor p(juce::File{});
+    p.loadIr(juce::File("/tmp/routing.wav"), {{{1, 1, 3, 0.5f}}});
+    ch::RoutingPanel panel(p);
+    auto apply = [&]
+    {
+        for (auto *c : panel.getChildren())
+            if (auto *b = dynamic_cast<juce::TextButton *>(c); b && b->getButtonText() == "Apply routing")
+                b->onClick();
+    };
+    apply();
+    auto state = p.selectedState();
+    REQUIRE(state.routing.routes.size() == 1);
+    REQUIRE(state.routing.routes[0].input == 1);
+    REQUIRE(state.routing.routes[0].output == 1);
+    REQUIRE(state.routing.routes[0].irChannel == 3);
+    test::near(state.routing.routes[0].gain, 0.5f, 0.01f);
+    p.setRouting({{{0, 1, 2, 0.75f}}});
+    juce::MessageManager::getInstance()->runDispatchLoopUntil(250);
+    apply();
+    state = p.selectedState();
+    REQUIRE(state.routing.routes.size() == 1);
+    REQUIRE(state.routing.routes[0].input == 0);
+    REQUIRE(state.routing.routes[0].output == 1);
+    REQUIRE(state.routing.routes[0].irChannel == 2);
+}
+TEST(waveform_selection_uses_original_source_time_after_trim)
+{
+    test::TempDir tmp;
+    juce::AudioBuffer<float> source(1, 48000);
+    source.clear();
+    source.setSample(0, 24000, 1);
+    ch::IrRequest request{tmp.wav("full.wav", source)};
+    request.startMs = 400;
+    request.endMs = 800;
+    auto decoded = ch::IrDecoder{}.decode(request);
+    REQUIRE(decoded);
+    ch::IrDisplay display;
+    display.setSize(600, 200);
+    display.setIr(decoded.ir);
+    display.setTrim(400, 800);
+    float start = -1, end = -1;
+    display.onSelection = [&](float a, float b)
+    {
+        start = a;
+        end = b;
+    };
+    auto event = [&](float x)
+    {
+        return juce::MouseEvent(juce::Desktop::getInstance().getMainMouseSource(), {x, 100},
+                                juce::ModifierKeys(juce::ModifierKeys::leftButtonModifier), 1, 0, 0, 0, 0,
+                                &display, &display, juce::Time::getCurrentTime(), {300, 100},
+                                juce::Time::getCurrentTime(), 1, true);
+    };
+    display.mouseDown(event(300));
+    display.mouseUp(event(440));
+    test::near(start, 500, 0.01f);
+    test::near(end, 750, 0.01f);
 }
