@@ -44,11 +44,11 @@
 - `RoutingModel` conserva routes, `bool automatic = true`, `bool lfeWetEnabled = false`, `juce::String sourceLayout`; `static RoutingModel forLayout(const BusLayout&, int irChannels, bool lfeWetEnabled)` costruisce l'associazione automatica. La variante `diagonal` rimane disponibile ai test core esistenti.
 - Il costruttore predefinito di `RoutingModel` seleziona il modo automatico; `RoutingModel(std::vector<Route>)` seleziona il modo matrice anche con vettore vuoto. Conservare la sintassi esistente dei percorsi espliciti tramite questo costruttore; non ignorare percorsi presenti perché un nuovo flag ha un default diverso.
 
-- [ ] Scrivere `host_layout_semantics_are_explicit`: ammettere mono, stereo, discreti 1–16, i quattro layout immersivi e AmbiX 1–3; rifiutare bus disabilitati e >16 canali. Discreto 4 e AmbiX 1 hanno identità diverse; solo una selezione esplicita AmbiX su bus discreti 4/9/16 consente l'interpretazione AmbiX. Un bus surround nominale non può essere reinterpretato come AmbiX.
-- [ ] Scrivere `automatic_routes_preserve_channels_and_exclude_lfe`: IR mono o con numero canali uguale al bus generano solo diagonale; nessun percorso da/verso LFE per default. Con consenso esplicito LFE, includere il percorso diagonale. IR con conteggio incompatibile richiede matrice esplicita.
-- [ ] Eseguire `cmake --build build --parallel 2` e `build/ch_tests`; osservare il fallimento dei nuovi casi prima dell'implementazione.
-- [ ] Implementare le interfacce sopra, usando `AudioChannelSet` e i suoi ChannelType per etichette/LFE; non dedurre il layout dal solo conteggio. Per percorsi LFE espliciti richiedere `lfeWetEnabled` nella validazione semantica.
-- [ ] Ripetere i test core; confermare i nuovi casi verdi insieme ai precedenti. Commit `feat: describe immersive and AmbiX bus layouts explicitly`.
+- [x] Scrivere `host_layout_semantics_are_explicit`: ammettere mono, stereo, discreti 1–16, i quattro layout immersivi e AmbiX 1–3; rifiutare bus disabilitati e >16 canali. Discreto 4 e AmbiX 1 hanno identità diverse; solo una selezione esplicita AmbiX su bus discreti 4/9/16 consente l'interpretazione AmbiX. Un bus surround nominale non può essere reinterpretato come AmbiX.
+- [x] Scrivere `automatic_routes_preserve_channels_and_exclude_lfe`: IR mono o con numero canali uguale al bus generano solo diagonale; nessun percorso da/verso LFE per default. Con consenso esplicito LFE, includere il percorso diagonale. IR con conteggio incompatibile richiede matrice esplicita.
+- [x] Eseguire `cmake --build build --parallel 2` e `build/ch_tests`; osservare il fallimento dei nuovi casi prima dell'implementazione.
+- [x] Implementare le interfacce sopra, usando `AudioChannelSet` e i suoi ChannelType per etichette/LFE; non dedurre il layout dal solo conteggio. Per percorsi LFE espliciti richiedere `lfeWetEnabled` nella validazione semantica.
+- [x] Ripetere i test core; confermare i nuovi casi verdi insieme ai precedenti. Commit `feat: describe immersive and AmbiX bus layouts explicitly`.
 
 ## Task 2: Processor multicanale, DSP e stato compatibile
 
@@ -95,4 +95,4 @@ compatibilità dello stato e GUI. La generazione dei formati e gli artefatti
 `BUILD` appartengono al piano successivo. Restano invariati i confini approvati:
 nessun renderer Atmos, metadati oggetto, decoder binaurale o libreria IR inclusa.
 
-**Stato:** piano scritto; implementazione in attesa della revisione richiesta da AGENTS.md.
+**Stato:** approvato dall’utente; implementazione in corso.
