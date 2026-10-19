@@ -6,6 +6,8 @@ Riverbero a convoluzione in **C++20 / JUCE 8**, con interfaccia nativa e libreri
 
 *Anteprima generata dal test della GUI con un IR sintetico.*
 
+La cartella [BUILD](BUILD/README.md) documenta la consegna finale richiesta per Linux, Windows e macOS. I [piani delle fasi successive](docs/superpowers/plans/2026-10-19-platform-builds.md) sono preparati per revisione; i binari finali multicanale non sono ancora generati.
+
 ## Funzioni implementate
 
 - Convoluzione FFT partizionata a latenza dichiarata zero; IR fino a 30 secondi a 96 kHz entro il budget del motore.
