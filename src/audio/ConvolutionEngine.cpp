@@ -11,7 +11,7 @@ void ConvolutionEngine::prepare(double sampleRate, int maxBlockSize, int channel
  blockSize=maxBlockSize;channelCount=channels;
  input.setSize(channels,blockSize);scratch.setSize(1,blockSize);paths.clear();
  for(auto r:model.routes) {
-  auto conv=std::make_unique<juce::dsp::Convolution>(juce::dsp::Convolution::NonUniform{256},queue);
+  auto conv=std::make_unique<juce::dsp::Convolution>(juce::dsp::Convolution::NonUniform{impulse->samples.getNumSamples()>96000?2048:256},queue);
   juce::AudioBuffer<float> mono(1,impulse->samples.getNumSamples());
   mono.copyFrom(0,0,impulse->samples,r.irChannel,0,mono.getNumSamples());
   conv->loadImpulseResponse(std::move(mono),sampleRate,juce::dsp::Convolution::Stereo::no,juce::dsp::Convolution::Trim::no,juce::dsp::Convolution::Normalise::no);
