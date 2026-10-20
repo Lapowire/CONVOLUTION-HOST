@@ -6,9 +6,13 @@ namespace ch
 juce::ValueTree StateStore::encode(const SavedState &s)
 {
     juce::ValueTree root("CONVOLUTION_HOST");
-    root.setProperty("version", 1, nullptr);
+    root.setProperty("version", 2, nullptr);
+    root.setProperty("interpretation", int(s.interpretation), nullptr);
     root.addChild(s.parameters.createCopy(), -1, nullptr);
     juce::ValueTree ir("IR");
+    ir.setProperty("automatic", s.routing.automatic, nullptr);
+    ir.setProperty("lfeWet", s.routing.lfeWetEnabled, nullptr);
+    ir.setProperty("layout", s.routing.sourceLayout, nullptr);
     ir.setProperty("path", s.request.file.getFullPathName(), nullptr);
     ir.setProperty("hash", s.hash, nullptr);
     ir.setProperty("relative", s.relativePath, nullptr);
@@ -48,13 +52,37 @@ juce::ValueTree StateStore::encode(const SavedState &s)
 }
 bool StateStore::decode(const juce::ValueTree &root, SavedState &out)
 {
-    if (!root.hasType("CONVOLUTION_HOST") || int(root["version"]) != 1)
+    if (!root.hasType("CONVOLUTION_HOST") || (int(root["version"]) != 1 && int(root["version"]) != 2))
         return false;
     auto ir = root.getChildWithName("IR"), parameters = root.getChildWithName("PARAMETERS");
     if (!ir.isValid() || !parameters.isValid() || ir.getNumChildren() > 259)
         return false;
     SavedState s;
     s.parameters = parameters.createCopy();
+    if (int(root["version"]) == 2)
+    {
+        const int mode = int(root["interpretation"]);
+        if (mode < 0 || mode > 2)
+            return false;
+        s.interpretation = BusInterpretation(mode);
+        if (!ir.hasProperty("automatic"))
+            return false;
+        s.routing.automatic = bool(ir["automatic"]);
+        s.routing.lfeWetEnabled = bool(ir["lfeWet"]);
+        s.routing.sourceLayout = ir["layout"].toString();
+        auto id = s.routing.sourceLayout;
+        bool valid = id.isEmpty() || id == "legacy-stereo";
+        for (auto set : {juce::AudioChannelSet::mono(), juce::AudioChannelSet::stereo(),
+                         juce::AudioChannelSet::create5point1(), juce::AudioChannelSet::create7point1(),
+                         juce::AudioChannelSet::create7point1point2(),
+                         juce::AudioChannelSet::create7point1point4(), juce::AudioChannelSet::ambisonic(1),
+                         juce::AudioChannelSet::ambisonic(2), juce::AudioChannelSet::ambisonic(3)})
+            valid = valid || id == BusLayout::fromHost(set, BusInterpretation::followHost)->identity();
+        for (int n = 1; n <= 16; ++n)
+            valid = valid || id == "discrete-" + juce::String(n);
+        if (!valid)
+            return false;
+    }
     const auto path = ir["path"].toString();
     if (path.isNotEmpty() && !juce::File::isAbsolutePath(path))
         return false;
@@ -95,6 +123,14 @@ bool StateStore::decode(const juce::ValueTree &root, SavedState &out)
     }
     if ((!s.request.additionalFiles.empty() && s.request.additionalFiles.size() != 3) ||
         s.routing.routes.size() > 256)
+        return false;
+    if (int(root["version"]) == 1)
+    {
+        s.routing.automatic = s.routing.routes.empty();
+        if (!s.routing.automatic)
+            s.routing.sourceLayout = "legacy-stereo";
+    }
+    if (s.routing.automatic && !s.routing.routes.empty())
         return false;
     out = std::move(s);
     return true;

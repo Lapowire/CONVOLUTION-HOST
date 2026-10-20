@@ -232,3 +232,45 @@ TEST(rapid_predelay_retargeting_keeps_sine_continuous)
     }
     REQUIRE(maxJump < 0.05f);
 }
+TEST(width_only_changes_designated_nonoverlapping_pairs)
+{
+    test::TempDir tmp;
+    ch::ReverbProcessor p;
+    initReverb(p, tmp, 4);
+    std::array<ch::StereoPair, 1> pair{{{0, 2}}};
+    p.configureWidthPairs(pair);
+    ch::ParameterSnapshot params;
+    params.mix = 100;
+    params.width = 0;
+    juce::AudioBuffer<float> audio(4, 256);
+    audio.clear();
+    audio.setSample(0, 0, 1);
+    audio.setSample(1, 0, 0.25f);
+    p.process(audio, params);
+    test::near(audio.getSample(0, 0), 0.5f);
+    test::near(audio.getSample(2, 0), 0.5f);
+    test::near(audio.getSample(1, 0), 0.25f);
+    test::near(audio.getSample(3, 0), 0);
+    bool rejected = false;
+    try
+    {
+        std::array<ch::StereoPair, 2> bad{{{0, 1}, {1, 2}}};
+        p.configureWidthPairs(bad);
+    }
+    catch (const std::exception &)
+    {
+        rejected = true;
+    }
+    REQUIRE(rejected);
+    rejected = false;
+    try
+    {
+        std::array<ch::StereoPair, 1> bad{{{0, 4}}};
+        p.configureWidthPairs(bad);
+    }
+    catch (const std::exception &)
+    {
+        rejected = true;
+    }
+    REQUIRE(rejected);
+}

@@ -72,7 +72,7 @@ void IrLoader::configure(double sr, int block, int channels)
     oldBuffer.setSize(channels, blockSize);
     oldBuffer.clear();
 }
-std::uint64_t IrLoader::request(IrRequest req, RoutingModel routing)
+std::uint64_t IrLoader::request(IrRequest req, RoutingModel routing, std::optional<BusLayout> layout)
 {
     std::uint64_t id;
     {
@@ -80,7 +80,8 @@ std::uint64_t IrLoader::request(IrRequest req, RoutingModel routing)
         id = latest.fetch_add(1) + 1;
         req.sampleRate = rate;
         pending =
-            Job{std::move(req), std::move(routing), rate, blockSize, channelCount, id, generation.load()};
+            Job{std::move(req),   std::move(routing), std::move(layout), rate, blockSize, channelCount, id,
+                generation.load()};
         current.loading = true;
         current.error = {};
         current.requestId = id;
@@ -157,12 +158,22 @@ void IrLoader::run()
             std::unique_ptr<ConvolutionEngine> engine;
             if (decoded && job->id == latest.load())
             {
-                auto mapping =
-                    job->routing.routes.empty()
-                        ? RoutingModel::diagonal(job->channels, decoded.ir->samples.getNumChannels())
-                        : job->routing;
+                auto mapping = job->routing;
+                if (mapping.automatic)
+                    mapping =
+                        job->layout
+                            ? RoutingModel::forLayout(*job->layout, decoded.ir->samples.getNumChannels(),
+                                                      mapping.lfeWetEnabled)
+                            : RoutingModel::diagonal(job->channels, decoded.ir->samples.getNumChannels());
                 try
                 {
+                    if (job->layout)
+                    {
+                        auto validation =
+                            mapping.validate(*job->layout, decoded.ir->samples.getNumChannels());
+                        if (validation.failed())
+                            throw std::runtime_error(validation.getErrorMessage().toStdString());
+                    }
                     engine = std::make_unique<ConvolutionEngine>(decoded.ir, std::move(mapping));
                     engine->prepare(job->rate, job->block, job->channels);
                 }

@@ -17,7 +17,7 @@ TEST(plugin_parameters_layout_and_state)
     auto bad = p.getBusesLayout();
     bad.inputBuses.set(0, juce::AudioChannelSet::create5point1());
     bad.outputBuses.set(0, juce::AudioChannelSet::create5point1());
-    REQUIRE(!p.isBusesLayoutSupported(bad));
+    REQUIRE(p.isBusesLayoutSupported(bad));
     REQUIRE(p.parameters.getParameter("mix"));
     setParam(p, "mix", 73);
     setParam(p, "eq9", -6);

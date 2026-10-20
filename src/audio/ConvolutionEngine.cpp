@@ -12,8 +12,8 @@ void ConvolutionEngine::prepare(double sampleRate, int maxBlockSize, int channel
     if (!impulse || sampleRate != impulse->sampleRate || maxBlockSize < 1 || maxBlockSize > 65536 ||
         !model.validate(channels, channels, impulse->samples.getNumChannels()))
         throw std::runtime_error("Invalid convolution configuration");
-    if (IrDecoder::estimateBytes(impulse->samples.getNumSamples(), int(model.routes.size()), maxBlockSize) >
-        IrDecoder::budgetBytes)
+    if (IrDecoder::estimateBytes(impulse->samples.getNumSamples(), std::max(1, int(model.routes.size())),
+                                 maxBlockSize) > IrDecoder::budgetBytes)
         throw std::runtime_error("Routing exceeds the engine memory budget");
     blockSize = maxBlockSize;
     channelCount = channels;

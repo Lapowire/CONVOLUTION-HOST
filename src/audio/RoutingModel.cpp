@@ -28,7 +28,8 @@ juce::Result RoutingModel::validate(const BusLayout &layout, int irChannels) con
     auto basic = validate(layout.channels.size(), layout.channels.size(), irChannels);
     if (basic.failed())
         return basic;
-    if (sourceLayout.isNotEmpty() && sourceLayout != layout.identity())
+    if (sourceLayout.isNotEmpty() && sourceLayout != layout.identity() &&
+        !(sourceLayout == "legacy-stereo" && (layout.identity() == "mono" || layout.identity() == "stereo")))
         return juce::Result::fail("Saved routing belongs to a different bus layout");
     for (auto route : routes)
         if (!lfeWetEnabled && layout.lfe >= 0 && (route.input == layout.lfe || route.output == layout.lfe))

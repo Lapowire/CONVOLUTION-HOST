@@ -10,6 +10,7 @@ struct SavedState
     juce::ValueTree parameters;
     IrRequest request;
     RoutingModel routing;
+    BusInterpretation interpretation = BusInterpretation::followHost;
     juce::String hash, relativePath;
 };
 class StateStore

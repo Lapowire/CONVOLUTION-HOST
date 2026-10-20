@@ -23,7 +23,7 @@ class IrLoader
     ~IrLoader();
     // configure/reset require audio processing to be suspended by the caller.
     void configure(double sampleRate, int blockSize, int channels);
-    std::uint64_t request(IrRequest, RoutingModel = {});
+    std::uint64_t request(IrRequest, RoutingModel = {}, std::optional<BusLayout> = {});
     std::uint64_t clear();
     void processWet(juce::AudioBuffer<float> &) noexcept;
     void reset() noexcept;
@@ -42,6 +42,7 @@ class IrLoader
     {
         IrRequest request;
         RoutingModel routing;
+        std::optional<BusLayout> layout;
         double rate = 48000;
         int block = 512, channels = 2;
         std::uint64_t id = 0, generation = 0;

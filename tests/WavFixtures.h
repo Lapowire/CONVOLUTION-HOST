@@ -22,6 +22,8 @@ struct TempDir
         auto out = f.createOutputStream();
         if (!out)
             throw std::runtime_error("output failed");
+        if (!out->setPosition(0) || out->truncate().failed())
+            throw std::runtime_error("fixture truncate failed");
         std::unique_ptr<juce::AudioFormatWriter> w(fmt.createWriterFor(
             out.release(), rate, static_cast<unsigned>(data.getNumChannels()), floating ? 32 : 16, {}, 0));
         if (!w || !w->writeFromAudioSampleBuffer(data, 0, data.getNumSamples()))

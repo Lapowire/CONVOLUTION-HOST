@@ -26,6 +26,8 @@ PluginProcessor::~PluginProcessor()
 void PluginProcessor::prepareToPlay(double sr, int block)
 {
     reverb.prepare(sr, std::max(1, block), getTotalNumInputChannels());
+    if (auto layout = busLayout())
+        reverb.configureWidthPairs(layout->stereoPairs);
     setLatencySamples(0);
     prepared.store(true);
     submit();
@@ -45,9 +47,11 @@ void PluginProcessor::processBlock(juce::AudioBuffer<float> &buffer, juce::MidiB
 }
 bool PluginProcessor::isBusesLayoutSupported(const BusesLayout &layout) const
 {
+    if (layout.inputBuses.size() != 1 || layout.outputBuses.size() != 1)
+        return false;
     const auto input = layout.getMainInputChannelSet(), output = layout.getMainOutputChannelSet();
-    return input == output &&
-           (input == juce::AudioChannelSet::mono() || input == juce::AudioChannelSet::stereo());
+    return layout.inputBuses.size() == 1 && layout.outputBuses.size() == 1 && input == output &&
+           BusLayout::fromHost(input, BusInterpretation::followHost).has_value();
 }
 double PluginProcessor::getTailLengthSeconds() const
 {
@@ -114,6 +118,10 @@ void PluginProcessor::loadIr(const juce::File &file, RoutingModel routing)
         selected.request.additionalFiles.clear();
         selected.request.sourceHashes.clear();
         selected.request.additionalRelativePaths.clear();
+        if (!routing.automatic && routing.sourceLayout.isEmpty())
+            if (auto layout = BusLayout::fromHost(getChannelLayoutOfBus(true, 0), selected.interpretation))
+                routing.sourceLayout = layout->identity();
+        routing.lfeWetEnabled = selected.routing.lfeWetEnabled;
         selected.routing = std::move(routing);
         selected.hash = {};
         selected.relativePath = {};
@@ -141,8 +149,12 @@ void PluginProcessor::loadTrueStereo(const std::array<juce::File, 4> &files, Rou
         selected.request.file = files[0];
         for (int i = 1; i < 4; ++i)
             selected.request.additionalFiles.push_back(files[std::size_t(i)]);
-        if (model.routes.empty())
+        if (model.automatic)
             model = {{{0, 0, 0, 1}, {0, 1, 1, 1}, {1, 0, 2, 1}, {1, 1, 3, 1}}};
+        if (!model.automatic && model.sourceLayout.isEmpty())
+            if (auto layout = BusLayout::fromHost(getChannelLayoutOfBus(true, 0), selected.interpretation))
+                model.sourceLayout = layout->identity();
+        model.lfeWetEnabled = selected.routing.lfeWetEnabled;
         selected.routing = std::move(model);
         for (int i = 0; i < 4; ++i)
         {
@@ -170,7 +182,38 @@ void PluginProcessor::setRouting(RoutingModel model)
 {
     {
         std::lock_guard lock(stateMutex);
+        if (!model.automatic && model.sourceLayout.isEmpty())
+            if (auto layout = BusLayout::fromHost(getChannelLayoutOfBus(true, 0), selected.interpretation))
+                model.sourceLayout = layout->identity();
+        model.lfeWetEnabled = selected.routing.lfeWetEnabled;
         selected.routing = std::move(model);
+    }
+    selectionRevision.fetch_add(1);
+    if (prepared.load())
+        submit();
+}
+std::optional<BusLayout> PluginProcessor::busLayout() const
+{
+    std::lock_guard lock(stateMutex);
+    return BusLayout::fromHost(getChannelLayoutOfBus(true, 0), selected.interpretation);
+}
+void PluginProcessor::setBusInterpretation(BusInterpretation mode)
+{
+    if (!BusLayout::fromHost(getChannelLayoutOfBus(true, 0), mode))
+        return;
+    {
+        std::lock_guard lock(stateMutex);
+        selected.interpretation = mode;
+    }
+    selectionRevision.fetch_add(1);
+    if (prepared.load())
+        submit();
+}
+void PluginProcessor::setLfeWetEnabled(bool enabled)
+{
+    {
+        std::lock_guard lock(stateMutex);
+        selected.routing.lfeWetEnabled = enabled;
     }
     selectionRevision.fetch_add(1);
     if (prepared.load())
@@ -192,7 +235,8 @@ void PluginProcessor::submit()
     state.request.expectedHash = state.hash;
     state.request.relativePath = state.relativePath;
     state.request.searchRoots = library.rootPaths();
-    submittedRequest.store(reverb.loader().request(std::move(state.request), std::move(state.routing)));
+    submittedRequest.store(
+        reverb.loader().request(std::move(state.request), std::move(state.routing), busLayout()));
 }
 } // namespace ch
 juce::AudioProcessor *JUCE_CALLTYPE createPluginFilter()

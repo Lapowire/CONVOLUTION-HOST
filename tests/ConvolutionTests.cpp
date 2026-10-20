@@ -112,3 +112,78 @@ TEST(large_host_blocks_do_not_allocate_fft_scratch_on_audio_thread)
     REQUIRE(test::realtimeAllocations == 0);
     test::near(audio.getSample(0, 0), 0.5f);
 }
+TEST(multichannel_sparse_matrix_matches_reference)
+{
+    for (int channels : {4, 6, 8, 9, 10, 12, 16})
+        for (double sr : {44100., 48000., 96000.})
+            for (int block : {64, 256, 1024})
+            {
+                auto ir = std::make_shared<ch::PreparedIr>();
+                ir->sampleRate = sr;
+                ir->samples.setSize(channels, 17);
+                ir->samples.clear();
+                ch::RoutingModel routes(std::vector<ch::Route>{});
+                for (int c = 0; c < channels; ++c)
+                {
+                    ir->samples.setSample(c, c % 17, float(c + 1) / 32);
+                    routes.routes.push_back({c, (c + 3) % channels, c, c % 2 ? -0.5f : 0.5f});
+                }
+                ch::ConvolutionEngine engine(ir, routes);
+                engine.prepare(sr, block, channels);
+                juce::AudioBuffer<float> audio(channels, 37);
+                audio.clear();
+                for (int c = 0; c < channels; ++c)
+                    audio.setSample(c, 0, 0.25f);
+                {
+                    test::RealtimeGuard guard;
+                    engine.process(audio);
+                }
+                REQUIRE(test::realtimeAllocations == 0);
+                for (int c = 0; c < channels; ++c)
+                    for (int i = 0; i < 37; ++i)
+                    {
+                        int input = (c - 3 + channels) % channels;
+                        test::near(
+                            audio.getSample(c, i),
+                            i == input % 17 ? 0.25f * float(input + 1) / 32 * (input % 2 ? -0.5f : 0.5f) : 0,
+                            2e-4f);
+                    }
+            }
+}
+#include <chrono>
+TEST(sixteen_channel_resources_and_overbudget_matrix)
+{
+    auto ir = std::make_shared<ch::PreparedIr>();
+    ir->samples.setSize(1, 96000);
+    ir->samples.clear();
+    ir->samples.setSample(0, 0, 0.5f);
+    ch::ConvolutionEngine engine(ir, ch::RoutingModel::diagonal(16, 1));
+    engine.prepare(48000, 256, 16);
+    juce::AudioBuffer<float> audio(16, 256);
+    audio.clear();
+    auto start = std::chrono::steady_clock::now();
+    {
+        test::RealtimeGuard guard;
+        for (int i = 0; i < 101; ++i)
+            engine.process(audio);
+    }
+    REQUIRE(test::realtimeAllocations == 0);
+    std::cout << "MEASURE 16ch/2s/48kHz 101x256: "
+              << std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count()
+              << " ms\n";
+    ch::RoutingModel dense(std::vector<ch::Route>{});
+    for (int i = 0; i < 16; ++i)
+        for (int o = 0; o < 16; ++o)
+            dense.routes.push_back({i, o, 0, 1});
+    bool rejected = false;
+    try
+    {
+        ch::ConvolutionEngine tooLarge(ir, dense);
+        tooLarge.prepare(48000, 256, 16);
+    }
+    catch (const std::exception &)
+    {
+        rejected = true;
+    }
+    REQUIRE(rejected);
+}

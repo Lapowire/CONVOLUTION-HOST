@@ -35,6 +35,9 @@ class PluginProcessor final : public juce::AudioProcessor,
     void loadIr(const juce::File &, RoutingModel = {});
     void loadTrueStereo(const std::array<juce::File, 4> &, RoutingModel = {});
     void setRouting(RoutingModel);
+    std::optional<BusLayout> busLayout() const;
+    void setBusInterpretation(BusInterpretation);
+    void setLfeWetEnabled(bool);
     SavedState selectedState() const;
     std::uint64_t selectionVersion() const noexcept { return selectionRevision.load(); }
     void servicePendingChanges();

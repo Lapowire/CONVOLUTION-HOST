@@ -1,6 +1,7 @@
 #pragma once
 #include "ir/IrLoader.h"
 #include <array>
+#include <span>
 namespace ch
 {
 inline constexpr std::array<float, 10> eqFrequencies{31.5f,  63.f,   125.f,  250.f,  500.f,
@@ -18,6 +19,7 @@ class ReverbProcessor
     void prepare(double sampleRate, int maxBlockSize, int channels);
     void process(juce::AudioBuffer<float> &, const ParameterSnapshot &) noexcept;
     void reset() noexcept;
+    void configureWidthPairs(std::span<const StereoPair>);
     IrLoader &loader() { return impulses; }
     const IrLoader &loader() const { return impulses; }
     std::atomic<float> inputPeak{0}, outputPeak{0};
@@ -39,5 +41,7 @@ class ReverbProcessor
     int blockSize = 512, channelCount = 2, writePosition = 0;
     float delayOld = 0, delayNew = 0, delayDesired = 0, delayBlend = 1;
     bool initial = true;
+    std::array<StereoPair, 8> widthPairs{};
+    int widthPairCount = 0;
 };
 } // namespace ch

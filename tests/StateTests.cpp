@@ -59,3 +59,36 @@ TEST(state_keeps_four_mono_source_references)
     REQUIRE(out.request.additionalFiles.size() == 3);
     REQUIRE(out.request.sourceHashes == s.request.sourceHashes);
 }
+TEST(state_v2_migrates_v1_and_keeps_empty_matrix_and_layout)
+{
+    ch::SavedState s;
+    s.parameters = juce::ValueTree("PARAMETERS");
+    s.routing = ch::RoutingModel(std::vector<ch::Route>{});
+    s.routing.sourceLayout = "ambix-acn-sn3d-3";
+    s.interpretation = ch::BusInterpretation::ambix;
+    s.routing.lfeWetEnabled = true;
+    auto tree = ch::StateStore::encode(s);
+    REQUIRE(int(tree["version"]) == 2);
+    ch::SavedState out;
+    REQUIRE(ch::StateStore::decode(tree, out));
+    REQUIRE(!out.routing.automatic);
+    REQUIRE(out.routing.sourceLayout == s.routing.sourceLayout);
+    REQUIRE(out.routing.lfeWetEnabled);
+    REQUIRE(out.interpretation == s.interpretation);
+    tree.setProperty("interpretation", 99, nullptr);
+    REQUIRE(!ch::StateStore::decode(tree, out));
+    tree.setProperty("version", 1, nullptr);
+    tree.removeProperty("interpretation", nullptr);
+    REQUIRE(ch::StateStore::decode(tree, out));
+    REQUIRE(out.routing.automatic);
+    juce::ValueTree route("ROUTE");
+    route.setProperty("input", 0, nullptr);
+    route.setProperty("output", 1, nullptr);
+    route.setProperty("irChannel", 0, nullptr);
+    route.setProperty("gain", -0.5, nullptr);
+    tree.getChildWithName("IR").addChild(route, -1, nullptr);
+    REQUIRE(ch::StateStore::decode(tree, out));
+    REQUIRE(!out.routing.automatic);
+    REQUIRE(out.routing.sourceLayout == "legacy-stereo");
+    test::near(out.routing.routes[0].gain, -0.5f);
+}

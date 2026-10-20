@@ -1,5 +1,6 @@
 #include "ReverbProcessor.h"
 #include <cmath>
+#include <stdexcept>
 namespace ch
 {
 namespace
@@ -43,6 +44,8 @@ void ReverbProcessor::prepare(double sr, int maxBlockSize, int channels)
     rate = sr;
     blockSize = juce::jlimit(1, 65536, maxBlockSize);
     channelCount = channels;
+    widthPairCount = channels == 2 ? 1 : 0;
+    widthPairs[0] = {0, 1};
     wet.setSize(channels, blockSize);
     dry.setSize(channels, blockSize);
     original.setSize(channels, blockSize);
@@ -62,6 +65,21 @@ void ReverbProcessor::prepare(double sr, int maxBlockSize, int channels)
     impulses.configure(sr, blockSize, channels);
     inputPeak.store(0);
     outputPeak.store(0);
+}
+void ReverbProcessor::configureWidthPairs(std::span<const StereoPair> pairs)
+{
+    if (pairs.size() > widthPairs.size())
+        throw std::invalid_argument("Too many stereo pairs");
+    std::array<bool, 16> used{};
+    for (auto pair : pairs)
+    {
+        if (pair.left < 0 || pair.right < 0 || pair.left >= channelCount || pair.right >= channelCount ||
+            pair.left == pair.right || used[std::size_t(pair.left)] || used[std::size_t(pair.right)])
+            throw std::invalid_argument("Stereo pairs must be in range and nonoverlapping");
+        used[std::size_t(pair.left)] = used[std::size_t(pair.right)] = true;
+    }
+    std::copy(pairs.begin(), pairs.end(), widthPairs.begin());
+    widthPairCount = int(pairs.size());
 }
 void ReverbProcessor::reset() noexcept
 {
@@ -155,12 +173,14 @@ void ReverbProcessor::process(juce::AudioBuffer<float> &buffer, const ParameterS
                     wet.setSample(c, i, filter.tick(wet.getSample(c, i), c));
             }
             const float width = smooth[4].getNextValue();
-            if (channelCount == 2)
+            for (int pairIndex = 0; pairIndex < widthPairCount; ++pairIndex)
             {
-                const float mid = (wet.getSample(0, i) + wet.getSample(1, i)) * 0.5f,
-                            side = (wet.getSample(0, i) - wet.getSample(1, i)) * 0.5f * width;
-                wet.setSample(0, i, mid + side);
-                wet.setSample(1, i, mid - side);
+                auto pair = widthPairs[std::size_t(pairIndex)];
+                const float mid = (wet.getSample(pair.left, i) + wet.getSample(pair.right, i)) * 0.5f,
+                            side =
+                                (wet.getSample(pair.left, i) - wet.getSample(pair.right, i)) * 0.5f * width;
+                wet.setSample(pair.left, i, mid + side);
+                wet.setSample(pair.right, i, mid - side);
             }
             const float outGain = smooth[1].getNextValue(), wetGain = smooth[2].getNextValue(),
                         mix = smooth[3].getNextValue(), bypass = smooth[5].getNextValue();

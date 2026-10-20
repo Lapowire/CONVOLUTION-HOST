@@ -61,15 +61,15 @@
 - `ReverbProcessor::prepare(double, int, int)` resta compatibile. Aggiungere `void configureWidthPairs(std::span<const StereoPair>)` solo con audio sospeso; i dati diventano array fisso massimo 8 coppie con conteggio.
 - Il loader riceve sempre una matrice risolta esplicita dal processor; `automatic` e matrice vuota esplicita non si confondono. Il motore gestisce una matrice esplicitamente vuota producendo wet silenzioso.
 
-- [ ] Scrivere test di layout del processor per ogni bus ammesso, ingressi/uscite asimmetrici, canali extra e bus disabilitati; aggiornare la precedente aspettativa di rifiuto 5.1.
-- [ ] Scrivere test audio con impulsi distinti per 4/6/8/9/10/12/16 canali, mappature sparse incrociate e confronto diretto con tolleranza assoluta `2e-4`. Coprire 44,1/48/96 kHz e blocchi 64/256/1024, incluse lunghezze variabili.
-- [ ] Scrivere `lfe_is_explicit_and_dry_remains_mix_dependent`: con mix 100 wet LFE silenzioso per default, mix 0 dry LFE invariato; abilitazione esplicita attiva il percorso atteso. Nessun crossfeed LFE verso altri canali per default.
-- [ ] Scrivere `ambix_preserves_acn_without_width_processing`: ordini 1–3, impulso su ciascun ingresso, nessuno scambio/normalizzazione per canale; WIDTH 0/100/200 non cambia AmbiX. Verificare una coppia stereo designata senza modificare gli altri canali e rifiutare coppie sovrapposte o fuori indice.
-- [ ] Scrivere test stato versione 1→2 e round-trip versione 2; rifiutare versioni future, interpretazioni sconosciute e layout incompatibili a uguale conteggio. Matrice esplicita vuota deve restare vuota e produrre wet silenzioso dopo riapertura.
-- [ ] Scrivere regressione cambio layout durante caricamento/crossfade, reset e restore prima/dopo prepare: motori di vecchie generazioni non si attivano; nessuna allocazione nel callback a 16 canali. Verificare rifiuto di matrice oltre budget e conservazione del motore compatibile precedente.
-- [ ] Eseguire i runner e osservare RED nei casi nuovi prima del codice.
-- [ ] Implementare negoziazione e validazione semantica nel processor, migrazione dello stato, copia delle coppie width nel prepare e routing risolto off-thread. Alla riconfigurazione invalidare i motori precedenti; una matrice incompatibile espone errore e conserva lo stato salvato per il recupero.
-- [ ] Eseguire build Release e CTest sotto Xvfb; misurare il caso 16 canali con IR corto e lungo ammesso dal budget, riportando tempi e stima senza promettere realtime universale. Commit `feat: process multichannel immersive and AmbiX buses`.
+- [x] Scrivere test di layout del processor per ogni bus ammesso, ingressi/uscite asimmetrici, canali extra e bus disabilitati; aggiornare la precedente aspettativa di rifiuto 5.1.
+- [x] Scrivere test audio con impulsi distinti per 4/6/8/9/10/12/16 canali, mappature sparse incrociate e confronto diretto con tolleranza assoluta `2e-4`. Coprire 44,1/48/96 kHz e blocchi 64/256/1024, incluse lunghezze variabili.
+- [x] Scrivere `lfe_is_explicit_and_dry_remains_mix_dependent`: con mix 100 wet LFE silenzioso per default, mix 0 dry LFE invariato; abilitazione esplicita attiva il percorso atteso. Nessun crossfeed LFE verso altri canali per default.
+- [x] Scrivere `ambix_preserves_acn_without_width_processing`: ordini 1–3, impulso su ciascun ingresso, nessuno scambio/normalizzazione per canale; WIDTH 0/100/200 non cambia AmbiX. Verificare una coppia stereo designata senza modificare gli altri canali e rifiutare coppie sovrapposte o fuori indice.
+- [x] Scrivere test stato versione 1→2 e round-trip versione 2; rifiutare versioni future, interpretazioni sconosciute e layout incompatibili a uguale conteggio. Matrice esplicita vuota deve restare vuota e produrre wet silenzioso dopo riapertura.
+- [x] Scrivere regressione cambio layout durante caricamento/crossfade, reset e restore prima/dopo prepare: motori di vecchie generazioni non si attivano; nessuna allocazione nel callback a 16 canali. Verificare rifiuto di matrice oltre budget e conservazione del motore compatibile precedente.
+- [x] Eseguire i runner e osservare RED nei casi nuovi prima del codice.
+- [x] Implementare negoziazione e validazione semantica nel processor, migrazione dello stato, copia delle coppie width nel prepare e routing risolto off-thread. Alla riconfigurazione invalidare i motori precedenti; una matrice incompatibile espone errore e conserva lo stato salvato per il recupero.
+- [x] Eseguire build Release e CTest sotto Xvfb; misurare il caso 16 canali con IR corto e lungo ammesso dal budget, riportando tempi e stima senza promettere realtime universale. Commit `feat: process multichannel immersive and AmbiX buses`.
 
 ## Task 3: Editor di matrice e completamento GUI
 

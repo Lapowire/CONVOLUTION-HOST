@@ -38,6 +38,7 @@ RoutingPanel::RoutingPanel(PluginProcessor &p) : processor(p)
     apply.onClick = [this]
     {
         RoutingModel model;
+        model.automatic = mode.getSelectedId() == 1;
         const int selected = mode.getSelectedId();
         if (selected != 1)
         {
