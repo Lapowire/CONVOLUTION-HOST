@@ -16,7 +16,7 @@ from build_artifacts import collect
 
 def verify(archive):
     with tempfile.TemporaryDirectory(prefix="ch-delivery-") as tmp:
-        root = pathlib.Path(tmp)
+        root = pathlib.Path(tmp).resolve()
         if zipfile.is_zipfile(archive):
             with zipfile.ZipFile(archive) as source:
                 for item in source.infolist():

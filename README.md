@@ -94,7 +94,7 @@ Le modifiche di trim/fade/normalizzazione richiedono una preparazione asincrona 
 
 ## Verifica e limiti attuali
 
-La build Release Linux supera 91 casi in 10 gruppi CTest (45 core, 22 processor/GUI, 21 Python e 3 test dei moduli). Risultati, correzioni della revisione e problemi minori ancora aperti sono elencati nello [stato di sviluppo](docs/development-status.md).
+La build Release Linux supera 91 casi in 10 gruppi CTest (45 core, 22 processor/GUI, 21 Python e 3 test dei moduli). I moduli reali verificano anche 9 configurazioni VST3 e 25 CLAP, inclusi metadati surround e AmbiX. Risultati, correzioni della revisione e problemi minori ancora aperti sono elencati nello [stato di sviluppo](docs/development-status.md).
 
 I test confrontano l'audio con una convoluzione diretta, provano routing e isolamento dei canali, sample rate e blocchi variabili, EQ, predelay, file corrotti, caricamenti concorrenti, sostituzioni, stato, rilocalizzazione e GUI ridimensionabile. I controlli di `new/delete` e, su Linux, di `malloc/calloc/realloc/free` intercettabili dal linker sul thread di test integrano l'audit del callback; non equivalgono a un analizzatore completo delle chiamate interne alle librerie dinamiche. Il test dell'editor produce `.build/ui-preview.png` con un IR sintetico.
 

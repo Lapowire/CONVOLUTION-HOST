@@ -85,7 +85,7 @@ Controlli con valore numerico modificabile, unità, tooltip, focus da tastiera e
 
 ## Build, dipendenze e licenze
 
-CMake con versioni JUCE e integrazione CLAP fissate a revisioni esatte nell'implementazione, senza seguire branch mobili. VST3 e standalone sono i target di base; AU è condizionale a macOS, AAX alla presenza di SDK Avid fornito dall'utente, CLAP all'integrazione del wrapper dedicato. Gli SDK proprietari non vengono inclusi nel repository. Nessun download deve disattivare verifica TLS, firme o checksum.
+CMake con versioni JUCE e integrazione CLAP fissate a revisioni esatte nell'implementazione, senza seguire branch mobili. VST3 e standalone sono i target di base; AU è condizionale a macOS, AAX a Windows/macOS tramite lo SDK incluso nel JUCE fissato con alternativa GPLv3, oppure uno SDK esterno esplicitamente configurato, CLAP all'integrazione del wrapper dedicato. Gli SDK proprietari non vengono inclusi nel repository. Nessun download deve disattivare verifica TLS, firme o checksum.
 
 Linux cloud: compilazione dei target compatibili e test DSP senza dispositivo audio. macOS: build AU/VST3/CLAP e verifica in host. Windows: build VST3/CLAP/AAX ove disponibile. Firma, notarizzazione, packaging commerciale e autorizzazioni Avid sono attività di rilascio successive. La licenza GPL già presente va conservata; prima di distribuire occorre verificare compatibilità delle dipendenze e condizioni JUCE/Avid per il modello di distribuzione scelto.
 

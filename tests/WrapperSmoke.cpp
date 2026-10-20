@@ -4,6 +4,8 @@
 #include <stdexcept>
 #if CH_SMOKE_CLAP
 #include <clap/clap.h>
+#include <clap/ext/ambisonic.h>
+#include <clap/ext/surround.h>
 #include <vector>
 #endif
 namespace
@@ -40,18 +42,40 @@ void vst3(const juce::String &path)
             "VST3 component state missing");
     verifyIdentity(componentState.getData(), componentState.getSize());
     instance->setStateInformation(state.getData(), int(state.getSize()));
-    instance->prepareToPlay(48000, 256);
-    juce::AudioBuffer<float> audio(
-        std::max(instance->getTotalNumInputChannels(), instance->getTotalNumOutputChannels()), 256);
-    audio.clear();
-    audio.setSample(0, 0, 0.25f);
-    juce::MidiBuffer midi;
-    instance->processBlock(audio, midi);
-    require(std::abs(audio.getSample(0, 0) - 0.25f) < 1e-5f, "VST3 unity passthrough failed");
-    for (int c = 0; c < audio.getNumChannels(); ++c)
-        for (int i = 0; i < 256; ++i)
-            require(std::isfinite(audio.getSample(c, i)), "Nonfinite VST3 output");
-    instance->releaseResources();
+    using Set = juce::AudioChannelSet;
+    const std::array<Set, 9> layouts{Set::mono(),
+                                     Set::stereo(),
+                                     Set::create5point1(),
+                                     Set::create7point1(),
+                                     Set::create7point1point2(),
+                                     Set::create7point1point4(),
+                                     Set::ambisonic(1),
+                                     Set::ambisonic(2),
+                                     Set::ambisonic(3)};
+    for (const auto &channels : layouts)
+    {
+        auto buses = instance->getBusesLayout();
+        buses.inputBuses.set(0, channels);
+        buses.outputBuses.set(0, channels);
+        require(instance->setBusesLayout(buses),
+                ("VST3 rejected bus: " + channels.getDescription()).toRawUTF8());
+        instance->prepareToPlay(48000, 256);
+        juce::AudioBuffer<float> audio(channels.size(), 256);
+        audio.clear();
+        for (int c = 0; c < channels.size(); ++c)
+            audio.setSample(c, 0, float(c + 1) / 100);
+        juce::MidiBuffer midi;
+        instance->processBlock(audio, midi);
+        for (int c = 0; c < channels.size(); ++c)
+        {
+            require(std::abs(audio.getSample(c, 0) - float(c + 1) / 100) < 1e-5f,
+                    "VST3 channel passthrough failed");
+            for (int i = 0; i < 256; ++i)
+                require(std::isfinite(audio.getSample(c, i)), "Nonfinite VST3 output");
+        }
+        instance->releaseResources();
+    }
+    std::cout << "Verified 9 native VST3 mono/stereo/surround/AmbiX configurations\n";
 }
 #if CH_SMOKE_CLAP
 struct Memory
@@ -144,6 +168,10 @@ void clap(const juce::String &path)
     require(ports->get(p, 0, true, &in) && ports->get(p, 0, false, &out), "CLAP port info missing");
     require(in.channel_count == out.channel_count && in.channel_count <= 16 && in.channel_count > 0,
             "CLAP channel count invalid");
+    auto *configurations = static_cast<const clap_plugin_audio_ports_config_t *>(
+        p->get_extension(p, CLAP_EXT_AUDIO_PORTS_CONFIG));
+    require(configurations && configurations->count(p) == 25,
+            "CLAP mono, discrete, surround and AmbiX configurations missing");
     auto *parameters = static_cast<const clap_plugin_params_t *>(p->get_extension(p, CLAP_EXT_PARAMS));
     require(parameters && parameters->count(p) > 0, "CLAP parameters missing");
     auto *state = static_cast<const clap_plugin_state_t *>(p->get_extension(p, CLAP_EXT_STATE));
@@ -154,34 +182,94 @@ void clap(const juce::String &path)
     verifyIdentity(memory.bytes.data(), memory.bytes.size());
     clap_istream_t inputStream{&memory, readState};
     require(state->load(p, &inputStream), "CLAP restore failed");
-    require(p->activate(p, 48000, 64, 256), "CLAP activate failed");
-    owner.active = true;
-    require(p->start_processing(p), "CLAP processing start failed");
-    owner.processing = true;
-    float input[16][256]{}, output[16][256]{};
-    float *inputPointers[16]{}, *outputPointers[16]{};
-    for (int c = 0; c < 16; ++c)
+    require(!configurations->select(p, CLAP_INVALID_ID), "Invalid CLAP bus id accepted");
+    for (uint32_t index = 0; index < configurations->count(p); ++index)
     {
-        inputPointers[c] = input[c];
-        outputPointers[c] = output[c];
+        clap_audio_ports_config_t configuration{};
+        require(configurations->get(p, index, &configuration), "CLAP bus description missing");
+        require(configurations->select(p, configuration.id), "CLAP bus configuration rejected");
+        require(ports->get(p, 0, true, &in) && ports->get(p, 0, false, &out), "CLAP selected port missing");
+        require(in.channel_count == configuration.main_input_channel_count &&
+                    out.channel_count == in.channel_count,
+                "CLAP current ports did not change with selection");
+        require((!in.port_type && !configuration.main_input_port_type) ||
+                    (in.port_type && configuration.main_input_port_type &&
+                     !std::strcmp(in.port_type, configuration.main_input_port_type)),
+                "CLAP selected port type differs from configuration");
+        if (index >= 18 && index <= 21)
+        {
+            auto *surround =
+                static_cast<const clap_plugin_surround_t *>(p->get_extension(p, CLAP_EXT_SURROUND));
+            require(surround, "CLAP surround channel metadata missing");
+            std::array<uint8_t, 16> map{}, outputMap{};
+            require(surround->get_channel_map(p, true, 0, map.data(), 16) == in.channel_count,
+                    "CLAP surround input map missing");
+            require(surround->get_channel_map(p, false, 0, outputMap.data(), 16) == in.channel_count &&
+                        map == outputMap,
+                    "CLAP surround input/output maps differ");
+            const std::vector<std::vector<uint8_t>> expected{{0, 1, 2, 3, 9, 10},
+                                                             {0, 1, 2, 3, 9, 10, 4, 5},
+                                                             {0, 1, 2, 3, 9, 10, 4, 5, 18, 19},
+                                                             {0, 1, 2, 3, 9, 10, 12, 14, 15, 17, 4, 5}};
+            require(std::equal(expected[index - 18].begin(), expected[index - 18].end(), map.begin()),
+                    "CLAP surround speaker order differs from JUCE bus");
+            uint64_t mask = 0;
+            for (uint32_t c = 0; c < in.channel_count; ++c)
+                mask |= uint64_t(1) << map[c];
+            require(surround->is_channel_mask_supported(p, mask),
+                    "CLAP reported surround mask is unsupported");
+        }
+        if (index >= 22)
+        {
+            auto *ambisonic =
+                static_cast<const clap_plugin_ambisonic_t *>(p->get_extension(p, CLAP_EXT_AMBISONIC));
+            clap_ambisonic_config_t convention{};
+            require(ambisonic && ambisonic->get_config(p, true, 0, &convention),
+                    "CLAP AmbiX metadata missing");
+            require(convention.ordering == CLAP_AMBISONIC_ORDERING_ACN &&
+                        convention.normalization == CLAP_AMBISONIC_NORMALIZATION_SN3D,
+                    "CLAP AmbiX convention changed");
+            require(ambisonic->is_config_supported(p, &convention), "CLAP AmbiX convention rejected");
+            convention.normalization = CLAP_AMBISONIC_NORMALIZATION_N3D;
+            require(!ambisonic->is_config_supported(p, &convention),
+                    "CLAP silently accepts another normalization");
+        }
+        require(p->activate(p, 48000, 64, 256), "CLAP activate failed");
+        owner.active = true;
+        require(p->start_processing(p), "CLAP processing start failed");
+        owner.processing = true;
+        float input[16][256]{}, output[16][256]{};
+        float *inputPointers[16]{}, *outputPointers[16]{};
+        for (int c = 0; c < 16; ++c)
+        {
+            inputPointers[c] = input[c];
+            outputPointers[c] = output[c];
+        }
+        for (uint32_t c = 0; c < in.channel_count; ++c)
+            input[c][0] = float(c + 1) / 100;
+        clap_audio_buffer_t inputBuffer{inputPointers, nullptr, in.channel_count, 0, 0},
+            outputBuffer{outputPointers, nullptr, out.channel_count, 0, 0};
+        clap_input_events_t inputEvents{nullptr, eventCount, event};
+        clap_output_events_t outputEvents{nullptr, push};
+        clap_process_t process{};
+        process.frames_count = 256;
+        process.audio_inputs = &inputBuffer;
+        process.audio_outputs = &outputBuffer;
+        process.audio_inputs_count = process.audio_outputs_count = 1;
+        process.in_events = &inputEvents;
+        process.out_events = &outputEvents;
+        require(p->process(p, &process) != CLAP_PROCESS_ERROR, "CLAP processing failed");
+        for (uint32_t c = 0; c < out.channel_count; ++c)
+            require(std::abs(output[c][0] - input[c][0]) < 1e-5f, "CLAP channel passthrough failed");
+        for (uint32_t c = 0; c < out.channel_count; ++c)
+            for (float sample : output[c])
+                require(std::isfinite(sample), "Nonfinite CLAP output");
+        p->stop_processing(p);
+        owner.processing = false;
+        p->deactivate(p);
+        owner.active = false;
     }
-    input[0][0] = 0.25f;
-    clap_audio_buffer_t inputBuffer{inputPointers, nullptr, in.channel_count, 0, 0},
-        outputBuffer{outputPointers, nullptr, out.channel_count, 0, 0};
-    clap_input_events_t inputEvents{nullptr, eventCount, event};
-    clap_output_events_t outputEvents{nullptr, push};
-    clap_process_t process{};
-    process.frames_count = 256;
-    process.audio_inputs = &inputBuffer;
-    process.audio_outputs = &outputBuffer;
-    process.audio_inputs_count = process.audio_outputs_count = 1;
-    process.in_events = &inputEvents;
-    process.out_events = &outputEvents;
-    require(p->process(p, &process) != CLAP_PROCESS_ERROR, "CLAP processing failed");
-    require(std::abs(output[0][0] - 0.25f) < 1e-5f, "CLAP unity passthrough failed");
-    for (uint32_t c = 0; c < out.channel_count; ++c)
-        for (float sample : output[c])
-            require(std::isfinite(sample), "Nonfinite CLAP output");
+    std::cout << "Verified 25 CLAP bus configurations and channel metadata\n";
 }
 #endif
 } // namespace

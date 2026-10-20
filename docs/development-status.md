@@ -12,7 +12,7 @@ rendering Atmos restano nella DAW.
 - Build Release Linux VST3, CLAP e Standalone, con CMake e dipendenze fissate.
 - 91 casi in 10 gruppi CTest: 45 core, 22 processor/editor, 21 Python e 3 test dei
   wrapper, incluso il rifiuto di un percorso inesistente.
-- VST3 e CLAP caricati come moduli reali da un host di test: factory,
+- VST3 e CLAP caricati come moduli reali da un host di test, rispettivamente 9 e 25 configurazioni: factory,
   istanziazione, parametri, salvataggio/ripristino e audio verificati.
 - Confronti con convoluzione diretta e verifica dei canali, LFE escluso per
   default, AmbiX preservato, cambi layout/generazioni e callback senza allocazioni
@@ -67,6 +67,8 @@ eseguita in una DAW con hardware audio; neppure TSan o misure del picco di
 memoria del processo. Le [licenze effettive](dependency-licenses.md) accompagnano
 le consegne; la GPL dei sorgenti originali è conservata.
 
-La seconda esecuzione [39380863250](https://github.com/Lapowire/CONVOLUTION-HOST/actions/runs/39380863250), sul commit `323f236`, ha confermato 88 casi Linux verdi. Windows ha isolato il fallimento nella simulazione di memoria esaurita: MSVC aggiunge padding alle grandi allocazioni, rendendo fragile una dimensione esatta. Il fault injector ora usa una soglia minima e verifica anche una richiesta con padding. Su macOS i test passano, ma auval non rileva il componente (`-50`); lo script legge i codici dal plist, attende la registrazione e aggiorna il registrar del solo utente del runner GitHub. Entrambe le correzioni richiedono conferma dal successivo job nativo. Gli archivi vengono inoltre estratti e controllati dopo il packaging.
+La seconda esecuzione [39380863250](https://github.com/Lapowire/CONVOLUTION-HOST/actions/runs/39380863250), sul commit `323f236`, ha confermato 88 casi Linux verdi. Windows ha isolato il fallimento nella simulazione di memoria esaurita: MSVC aggiunge padding alle grandi allocazioni, rendendo fragile una dimensione esatta. Il fault injector ora usa una soglia minima e verifica anche una richiesta con padding. Su macOS i test passano, ma auval non rileva il componente (`-50`); lo script legge i codici dal plist, attende la registrazione e aggiorna il registrar del solo utente del runner GitHub. La terza esecuzione [39382584807](https://github.com/Lapowire/CONVOLUTION-HOST/actions/runs/39382584807), commit `aa729cc`, conferma il recupero Windows e il successo macOS completo, incluso auval e archivio. Windows si arresta soltanto nel controllo dei percorsi ZIP temporanei: la radice viene ora canonicalizzata, con regressione tramite un alias di directory. La conferma Windows di questo ultimo controllo resta al job successivo. Gli archivi vengono inoltre estratti e controllati dopo il packaging.
 
 La revisione finale congiunta è completata. Le correzioni sono documentate nelle [decisioni di build e revisione](review-and-build-decisions.md); la validazione nativa Windows/macOS resta aperta.
+
+Il wrapper CLAP fissato esponeva solo lo stereo iniziale. Una [copia generata adattata](clap-bus-adaptation.md) offre ora 25 configurazioni e metadati surround/AmbiX; il modulo reale le supera tutte su Linux. Anche VST3 passa 9 layout canonici reali. Le consegne native finali devono includere questo aggiornamento.

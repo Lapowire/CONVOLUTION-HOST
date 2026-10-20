@@ -115,6 +115,38 @@ class StagingTests(unittest.TestCase):
         else:
             with tarfile.open(archive) as source:
                 source.extractall(extracted, filter="data")
+        # Windows can provide an 8.3 temporary root; a symlink alias exercises
+        # the same canonical/noncanonical containment check on every platform.
+        actual_tmp = self.root / "actual-tmp"
+        actual_tmp.mkdir()
+        alias_tmp = self.root / "alias-tmp"
+        alias_tmp.symlink_to(actual_tmp, target_is_directory=True)
+        zipped = self.root / "canonical-path.zip"
+        with zipfile.ZipFile(zipped, "w") as target:
+            for path in extracted.rglob("*"):
+                if path.is_file():
+                    target.write(path, path.relative_to(extracted).as_posix())
+        env = dict(
+            os.environ, TMPDIR=str(alias_tmp), TEMP=str(alias_tmp), TMP=str(alias_tmp)
+        )
+        checked = subprocess.run(
+            [
+                sys.executable,
+                str(ROOT / "scripts/verify-delivery.py"),
+                "--archive",
+                str(zipped),
+            ],
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        if self.platform == "Windows":
+            self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
+        else:
+            # Python's ZIP extractor does not restore Unix executable modes.
+            # The canonical-root check must pass before this legitimate guard.
+            self.assertNotEqual(checked.returncode, 0)
+            self.assertIn("not executable", checked.stderr)
         license_file = next(extracted.glob("BUILD/*/*/LICENSES/CONVOLUTION-HOST.txt"))
         license_file.write_text("damaged during transfer")
         damaged = self.root / "damaged.tar.gz"

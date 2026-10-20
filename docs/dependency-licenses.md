@@ -10,6 +10,7 @@ singoli sorgenti originali.
 FFTW usa GPL v2 o successiva; l'adattamento al planner è documentato in
 `docs/fftw-realtime.md` ed è riproducibile dal modulo CMake incluso nei sorgenti.
 CLAP, clap-helpers e clap-juce-extensions mantengono i rispettivi avvisi MIT.
+L’adattamento del wrapper CLAP è documentato in `docs/clap-bus-adaptation.md`; la copia generata conserva gli avvisi MIT upstream.
 Gli SDK VST3 e AAX inclusi nella revisione JUCE fissata offrono l'alternativa
 GPLv3 indicata nei loro file LICENSE; non si presume alcun contratto commerciale
 Steinberg/Avid. AudioUnitSDK è Apache 2.0.

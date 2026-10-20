@@ -31,6 +31,7 @@ Decisioni adottate durante l'esecuzione:
 - Wrapper, CI e staging integrati nello stesso commit perché la workflow usa
   direttamente gli script di raccolta; separarli avrebbe creato un commit
   intermedio con pipeline incompleta.
+- Il wrapper CLAP fissato offriva soltanto stereo: una copia generata espone 25 configurazioni, mappe surround e ACN/SN3D, senza cambiare il checkout upstream. Il costo è manutenzione dei punti di adattamento, verificati da un test sul modulo reale e da controlli CMake. Vedere [adattamento CLAP](clap-bus-adaptation.md).
 - La pubblicazione confronta gli hash con una nuova esecuzione CTest e controlla
   gli entrypoint nativi. Il commit compilato viene controllato dai test e dallo
   stato dei moduli VST3/CLAP caricati. Un XML importato non costituisce prova
