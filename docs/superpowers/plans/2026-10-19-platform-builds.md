@@ -63,8 +63,8 @@
 - [x] Implementare il runner, leggendo le API dalle dipendenze fissate; i test audio multicanale restano quelli del processor e non vengono sostituiti da una sola istanziazione.
 - [x] Scrivere controlli artefatti: ELF x86_64 per Linux, PE x64 per Windows, Mach-O con entrambe le slice nei bundle macOS. AAX e AU devono avere il layout nativo JUCE e i rispettivi entry point.
 - [x] Aggiungere job nativi con azioni fissate a SHA; Linux usa Xvfb, Windows e macOS i toolchain nativi. Non usare certificati né dati segreti. Richieste manuali `workflow_dispatch` oltre a push/PR.
-- [ ] Su macOS eseguire `auval -v aufx Cvht Lpwr` dopo installazione nella sola directory utente temporanea del runner, ripristinando qualsiasi plugin preesistente; registrare output. AAX: verifica binario compilato; prova in Pro Tools Developer solo se effettivamente disponibile, altrimenti esplicito `not_run`.
-- [ ] Eseguire i job disponibili e raccogliere esiti reali, log e limiti. Commit `ci: build and smoke test native plugin formats on three platforms`.
+- [x] Su macOS eseguire `auval -v aufx Cvht Lpwr` dopo installazione nella sola directory utente temporanea del runner, ripristinando qualsiasi plugin preesistente; registrare output. AAX: verifica binario compilato; prova in Pro Tools Developer solo se effettivamente disponibile, altrimenti esplicito `not_run`.
+- [x] Eseguire i job disponibili e raccogliere esiti reali, log e limiti. Commit `ci: build and smoke test native plugin formats on three platforms`.
 
 ## Task 3: Staging in BUILD, manifest e archivi finali
 
@@ -80,7 +80,7 @@
 
 - [x] Scrivere test Python temporanei: bundle completi, formato mancante, hash, nomi con spazi, directory aggiuntive ignorate, symlink esterni, provenienza mancante/commit errato, esito test fallito, conservazione dell'ultima consegna in caso di errore. Confermare RED prima dell'implementazione.
 - [x] Implementare staging e manifest; generare anche avvisi/licenze GPL/JUCE/FFTW/CLAP/AAX applicabili, recuperati dalle dipendenze effettive senza aggiungere SDK nel repository.
-- [ ] Testare permessi eseguibili dopo tar/estrazione su Linux e macOS, entrambe le slice dopo packaging su macOS e PE x64 dopo unzip su Windows. Verificare checksum dopo estrazione.
+- [x] Testare permessi eseguibili dopo tar/estrazione su Linux e macOS, entrambe le slice dopo packaging su macOS e PE x64 dopo unzip su Windows. Verificare checksum dopo estrazione.
 - [x] Collegare staging alla CI solo DOPO build e test verdi; un formato richiesto mancante fa fallire il job. Unire gli archivi scaricabili sotto `BUILD` senza dichiarare un formato generato se il suo job non è eseguito.
 - [x] Dopo il completamento multicanale, eseguire build Release, tutta la suite e staging Linux in questo workspace. Scaricare e verificare gli archivi Windows/macOS dai job se l'accesso remoto lo permette; in caso contrario registrare precisamente l'impedimento senza inventare file.
 - [x] Dopo aver verificato il setup con `.build/`, aggiornare la bozza cloud install/start affinché usi il nuovo percorso; preservare le altre impostazioni dell'ambiente.
@@ -101,3 +101,5 @@ precedente copre le funzioni audio ancora mancanti. Nessun installer commerciale
 servizio di aggiornamento o gestione licenze viene aggiunto senza richiesta.
 
 **Stato:** implementazione locale e revisione finale completate; 91 casi Linux passano in 10 gruppi. La prima esecuzione CI ha prodotto il pacchetto Linux, mentre Windows si è fermato nei test e macOS in auval. Le diagnostiche per i tentativi successivi sono integrate; la consegna Windows/macOS richiede ancora test/auval verdi. API `Forbidden`, annotazioni pubbliche consultabili.
+
+**Conferma finale:** run `39384746931`, commit `d49bc85`, tutti i job SUCCESS. 91 casi per piattaforma; AUval verde, archivi estratti verificati su tre OS e pacchetto aggregato pubblicato. Il download dal cloud è impedito da API Forbidden; i file sono disponibili dal run GitHub. Firma e prove Pro Tools/DAW restano esplicitamente non eseguite.

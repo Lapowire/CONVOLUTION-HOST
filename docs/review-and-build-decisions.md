@@ -42,3 +42,5 @@ AU, AAX e applicazioni Windows/macOS richiedono evidenze dei runner nativi.
 La CI è stata avviata, ma l'API Actions restituisce Forbidden in questa
 sessione. La pagina pubblica ha confermato il primo pacchetto Linux e gli arresti nei test Windows e nella validazione AU macOS. Le annotazioni diagnostiche CI espongono solo estratti delle uscite dei test; non contengono variabili o credenziali. Firma Avid/PACE, Developer ID, notarizzazione e prove
 nelle DAW non sono state eseguite. Vedere lo [stato](development-status.md).
+
+Esito finale: il run [39384746931](https://github.com/Lapowire/CONVOLUTION-HOST/actions/runs/39384746931#artifacts), commit `d49bc85`, è verde su tutte le piattaforme e ha pubblicato il pacchetto aggregato. I limiti residui sono firma/notarizzazione e prove nelle DAW, non build mancanti. Il download API dal cloud resta Forbidden; i pacchetti sono disponibili via GitHub. [Evidenze finali](native-validation.md).

@@ -51,8 +51,10 @@ Leggere `docs/superpowers/specs/2026-10-19-convolution-host-design.md` prima di 
 - Ambiente cloud Debian senza root: eseguire `bash scripts/setup-cloud.sh`, poi `source /workspace/toolchain/activate.sh`. I pacchetti Debian vanno verificati attraverso indici firmati, non estratti da download arbitrari.
 - `ch_tests` verifica il core offline; `ch_plugin_tests` verifica processor, stato e GUI e genera `.build/ui-preview.png`. Il runner stampa il conteggio dei casi effettivamente eseguiti.
 - Su Linux i test intercettano anche le allocazioni C raggiungibili dal linker; le chiamate interne alle librerie dinamiche richiedono audit separato.
-- I target verificati Linux sono VST3, CLAP e Standalone fino a 16 canali, inclusi true stereo, layout immersivi e AmbiX 1–3. AU/AAX e Windows/macOS sono configurati nella CI nativa; dichiararli verificati solo dopo build e test effettivi su tali piattaforme.
-- In questo repository le build Linux e i test sono stati eseguiti. Verificare nuovamente i comandi dopo ogni modifica; non dedurre da queste prove il funzionamento su macOS/Windows o in tutte le DAW.
+- La CI nativa del commit `d49bc85` è verde su Linux, Windows e macOS: 91 casi per piattaforma, 9 layout VST3 e 25 configurazioni CLAP reali. AU supera auval; AAX è compilato con entrypoint controllati, senza prova Pro Tools. Vedere `docs/native-validation.md` per risultati e limiti.
+- Verificare nuovamente i comandi dopo modifiche al codice. I test nativi non certificano il funzionamento in tutte le DAW né firma/notarizzazione. macOS universal contiene entrambe le slice, ma i test runtime CI sono su arm64.
 
 - `BUILD/` contiene plugin completi e manifest generati; non usare `build/` per nuovi intermedi, perché può collidere con `BUILD/` su Windows/macOS. Usare `.build/`.
 - Lo staging richiede provenienza del commit corrente e test verdi; i binari generati sono ignorati in Git e distribuiti tramite archivi/artifact. Non presentare AAX non firmato come pronto per Pro Tools normale.
+
+- Il wrapper CLAP usa una copia generata adattata: mantenere i controlli CMake e i test delle 25 configurazioni, mappe surround e ACN/SN3D. Non modificare il checkout upstream fissato.

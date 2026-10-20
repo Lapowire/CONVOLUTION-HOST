@@ -27,10 +27,13 @@ Standalone sono applicazioni separate; su macOS si copia `.app` in Applications.
 
 ## Disponibilità e download
 
-La build Linux viene generata e verificata nel workspace cloud. Le build
-Windows/macOS richiedono l'esecuzione della workflow
-[Native plugin builds](https://github.com/Lapowire/CONVOLUTION-HOST/actions/workflows/build.yml).
-La prima esecuzione ha prodotto l’artefatto Linux; Windows si è fermato nei test e macOS in auval. Le build Windows/macOS non sono quindi consegne verificate. L’API restituisce `Forbidden`; le annotazioni pubbliche e le diagnostiche CI permettono di seguire i tentativi. Vedere lo [stato](../docs/development-status.md).
+Le tre build native sono riuscite sul commit `d49bc85`. Scaricare **Artifacts →
+convolution-host-all-platforms** dal [run verificato](https://github.com/Lapowire/CONVOLUTION-HOST/actions/runs/39384746931#artifacts).
+Estrarre lo ZIP e poi il TAR interno: contiene questa struttura `BUILD` con tutti
+i plugin e le tre applicazioni. Sono disponibili anche i pacchetti separati.
+Il workspace contiene già la build Linux; il download automatico degli artefatti
+GitHub dal cloud restituisce `Forbidden`. Windows/macOS sono pubblicati nel run.
+Vedere [verifiche native](../docs/native-validation.md) per architetture, test e limiti.
 
 Gli output generati sono esclusi dal controllo versione: aprire il workspace
 `BUILD` oppure scaricare gli artefatti della workflow. Gli archivi piattaforma

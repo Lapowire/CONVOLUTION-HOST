@@ -51,24 +51,36 @@ attivi. Le sorgenti upstream verificate non sono modificate.
 
 ## Piattaforme e limiti esterni
 
-| Consegna | Stato verificato in questa sessione |
+Il [run 39384746931](https://github.com/Lapowire/CONVOLUTION-HOST/actions/runs/39384746931#artifacts)
+del commit `d49bc85` è **SUCCESS** su tutte le piattaforme e nell'assemblaggio:
+91 casi per piattaforma, più controlli degli entrypoint e degli archivi estratti.
+
+| Consegna | Stato verificato |
 | --- | --- |
-| Linux VST3/CLAP/Standalone | Compilati e testati; raccolta in `BUILD/Linux/x86_64` |
-| Windows VST3/CLAP/AAX/EXE | Target e runner predisposti; esecuzione nativa non verificata |
-| macOS VST3/CLAP/AU/AAX/APP universal | Target e runner predisposti; esecuzione nativa e auval non verificati |
+| Linux VST3/CLAP/Standalone x86_64 | Build, test e archivio verificati; copia locale in `BUILD/Linux/x86_64` |
+| Windows VST3/CLAP/AAX/EXE x86_64 | Build, test, entrypoint PE e ZIP estratto verificati |
+| macOS VST3/CLAP/AU/AAX/APP universal | Build, test su arm64, auval, due slice e archivio verificati |
 
-La prima esecuzione nativa [39379201602](https://github.com/Lapowire/CONVOLUTION-HOST/actions/runs/39379201602) ha prodotto il pacchetto Linux. Windows si è fermato nei test CTest e macOS in auval, dopo la compilazione dei target. L’API restituisce `Forbidden` e i log dettagliati richiedono accesso; le annotazioni pubbliche indicano le fasi fallite. La pipeline include ora diagnostiche limitate alle uscite dei test per individuare le cause al tentativo successivo. Non sono stati generati in Linux file AU,
-AAX o applicazioni Windows/macOS tramite rinomina di binari.
+Sono pubblicati i tre pacchetti e `convolution-host-all-platforms`, circa 62,6 MB,
+con la cartella `BUILD` completa. [Download ed evidenze](native-validation.md).
+Il download automatico tramite API dal cloud restituisce Forbidden; i pacchetti
+Windows/macOS sono disponibili dal run GitHub con il proprio account.
 
-Gli SDK AAX e VST3 sono inclusi nella dipendenza JUCE fissata. Non sono presenti
-certificati o credenziali di firma. AAX richiede ancora il processo Avid/PACE per
-la distribuzione nella normale versione di Pro Tools. Nessuna prova è stata
-eseguita in una DAW con hardware audio; neppure TSan o misure del picco di
-memoria del processo. Le [licenze effettive](dependency-licenses.md) accompagnano
-le consegne; la GPL dei sorgenti originali è conservata.
+Le verifiche native hanno corretto due problemi degli strumenti: la simulazione
+OOM usa una soglia minima, compatibile con il padding MSVC, e il verificatore
+ZIP canonicalizza la directory temporanea. AU legge i codici dal plist e attende
+la registrazione, aggiornando il registrar del solo utente del runner GitHub.
+Il wrapper CLAP espone [25 configurazioni](clap-bus-adaptation.md), mappe surround
+e ACN/SN3D tramite una copia generata; VST3 verifica 9 layout canonici reali.
 
-La seconda esecuzione [39380863250](https://github.com/Lapowire/CONVOLUTION-HOST/actions/runs/39380863250), sul commit `323f236`, ha confermato 88 casi Linux verdi. Windows ha isolato il fallimento nella simulazione di memoria esaurita: MSVC aggiunge padding alle grandi allocazioni, rendendo fragile una dimensione esatta. Il fault injector ora usa una soglia minima e verifica anche una richiesta con padding. Su macOS i test passano, ma auval non rileva il componente (`-50`); lo script legge i codici dal plist, attende la registrazione e aggiorna il registrar del solo utente del runner GitHub. La terza esecuzione [39382584807](https://github.com/Lapowire/CONVOLUTION-HOST/actions/runs/39382584807), commit `aa729cc`, conferma il recupero Windows e il successo macOS completo, incluso auval e archivio. Windows si arresta soltanto nel controllo dei percorsi ZIP temporanei: la radice viene ora canonicalizzata, con regressione tramite un alias di directory. La conferma Windows di questo ultimo controllo resta al job successivo. Gli archivi vengono inoltre estratti e controllati dopo il packaging.
+AAX supera compilazione e controllo degli entrypoint, ma non è firmato Avid/PACE
+né provato in Pro Tools. Le build macOS non sono Developer ID firmate/notarizzate;
+la slice Intel è compilata e controllata, senza esecuzione su un host Intel.
+Nessuna prova in una sessione DAW con hardware audio, TSan o misura del picco
+RSS del processo. I manifest distinguono build, test e validazione nella DAW.
 
-La revisione finale congiunta è completata. Le correzioni sono documentate nelle [decisioni di build e revisione](review-and-build-decisions.md); la validazione nativa Windows/macOS resta aperta.
-
-Il wrapper CLAP fissato esponeva solo lo stereo iniziale. Una [copia generata adattata](clap-bus-adaptation.md) offre ora 25 configurazioni e metadati surround/AmbiX; il modulo reale le supera tutte su Linux. Anche VST3 passa 9 layout canonici reali. Le consegne native finali devono includere questo aggiornamento.
+Gli SDK AAX e VST3 sono inclusi nel JUCE fissato. Non sono presenti certificati o
+credenziali di firma nelle consegne. Le [licenze](dependency-licenses.md)
+accompagnano i pacchetti; la GPL originale è conservata. La revisione finale
+congiunta è completata; tutte le correzioni e le decisioni sono raccolte in
+[review-and-build-decisions.md](review-and-build-decisions.md).
