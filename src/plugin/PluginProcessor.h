@@ -50,6 +50,7 @@ class PluginProcessor final : public juce::AudioProcessor,
     void parameterChanged(const juce::String &, float) override
     {
         irDirty.store(true, std::memory_order_release);
+        lastIrChange.store(juce::Time::getMillisecondCounter(),std::memory_order_release);
     }
     void submit();
     ParameterRefs refs;
@@ -58,5 +59,6 @@ class PluginProcessor final : public juce::AudioProcessor,
     std::atomic<std::uint64_t> selectionRevision{1};
     std::atomic<std::uint64_t> submittedRequest{0};
     std::atomic<bool> irDirty{false}, prepared{false};
+    std::atomic<juce::uint32> lastIrChange{0};
 };
 } // namespace ch

@@ -154,7 +154,7 @@ void IrLoader::run()
                     decoded.error = "Saved IR is missing or its content changed; locate the original WAV";
                 else
                 {
-                    decoded = IrDecoder{}.decode(*resolved,[&]{return job->id!=latest.load()||job->generation!=generation.load();});
+                    decoded = IrDecoder{}.decode(*resolved,[&]{return stopping.load()||job->id!=latest.load()||job->generation!=generation.load();});
                     if (decoded && decoded.ir->hash != job->request.expectedHash)
                     {
                         decoded.ir.reset();
@@ -163,7 +163,7 @@ void IrLoader::run()
                 }
             }
             else
-                decoded = IrDecoder{}.decode(job->request,[&]{return job->id!=latest.load()||job->generation!=generation.load();});
+                decoded = IrDecoder{}.decode(job->request,[&]{return stopping.load()||job->id!=latest.load()||job->generation!=generation.load();});
             std::unique_ptr<ConvolutionEngine> engine;
             if (decoded && job->id == latest.load())
             {

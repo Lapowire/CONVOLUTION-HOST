@@ -59,7 +59,7 @@ class IrLoader
     Status current;
     double rate = 48000;
     int blockSize = 512, channelCount = 2;
-    bool stopping = false;
+    std::atomic<bool> stopping{false};
     std::atomic<std::uint64_t> latest{0}, generation{1}, accepted{0}, readyId{0}, clearRequest{0};
     std::atomic<Packet *> ready{nullptr};
     Packet *active = nullptr;

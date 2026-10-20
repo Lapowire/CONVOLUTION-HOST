@@ -215,3 +215,19 @@ TEST(restoring_empty_state_clears_old_and_pending_ir_without_audio_allocation)
     }
     REQUIRE(!p.reverb.loader().status().ir);
 }
+TEST(legacy_state_restores_new_defaults_on_modified_instance)
+{
+    ch::PluginProcessor p(juce::File{});
+    REQUIRE(p.parameters.getParameter("peq5Freq"));
+    int oldIndex=p.parameters.getParameter("normalise")->getParameterIndex();
+    REQUIRE(p.parameters.getParameter("peq0Freq")->getParameterIndex()>oldIndex);
+    setParam(p,"peq5Freq",4321);setParam(p,"damp3Rate",20);
+    ch::SavedState legacy;legacy.parameters=juce::ValueTree("PARAMETERS");
+    juce::ValueTree eq("PARAM");eq.setProperty("id","eq5",nullptr);eq.setProperty("value",-6,nullptr);legacy.parameters.addChild(eq,-1,nullptr);
+    auto tree=ch::StateStore::encode(legacy);tree.setProperty("version",2,nullptr);tree.removeChild(tree.getChildWithName("TONE_MEMORIES"),nullptr);
+    juce::MemoryBlock bytes;juce::MemoryOutputStream stream(bytes,false);tree.writeToStream(stream);
+    p.setStateInformation(bytes.getData(),int(bytes.getSize()));
+    test::near(p.parameters.getRawParameterValue("peq5Freq")->load(),1000);
+    test::near(p.parameters.getRawParameterValue("damp3Rate")->load(),0);
+    test::near(p.parameters.getRawParameterValue("eq5")->load(),-6);
+}

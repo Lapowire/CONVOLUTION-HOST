@@ -6,7 +6,7 @@ namespace ch
 juce::ValueTree StateStore::encode(const SavedState &s)
 {
     juce::ValueTree root("CONVOLUTION_HOST");
-    root.setProperty("version", 2, nullptr);
+    root.setProperty("version", 3, nullptr);
     root.setProperty("interpretation", int(s.interpretation), nullptr);
     root.addChild(s.parameters.createCopy(), -1, nullptr);
     juce::ValueTree ir("IR");
@@ -51,18 +51,31 @@ juce::ValueTree StateStore::encode(const SavedState &s)
         ir.addChild(path, -1, nullptr);
     }
     root.addChild(ir, -1, nullptr);
+    auto memories=s.toneMemories;
+    if(auto active=ToneState::fromParameters(s.parameters))memories.slots[std::size_t(memories.active)]=*active;
+    root.addChild(memories.encode(),-1,nullptr);
     return root;
 }
 bool StateStore::decode(const juce::ValueTree &root, SavedState &out)
 {
-    if (!root.hasType("CONVOLUTION_HOST") || (int(root["version"]) != 1 && int(root["version"]) != 2))
+    if (!root.hasType("CONVOLUTION_HOST") || (int(root["version"]) != 1 && int(root["version"]) != 2 && int(root["version"]) != 3))
         return false;
     auto ir = root.getChildWithName("IR"), parameters = root.getChildWithName("PARAMETERS");
     if (!ir.isValid() || !parameters.isValid() || ir.getNumChildren() > 259)
         return false;
     SavedState s;
     s.parameters = parameters.createCopy();
-    if (int(root["version"]) == 2)
+    auto tone=ToneState::fromParameters(parameters);
+    if(!tone)return false;
+    if(int(root["version"])==3)
+    {
+        auto memories=ToneMemories::decode(root.getChildWithName("TONE_MEMORIES"));
+        if(!memories||memories->slots[std::size_t(memories->active)]!=*tone)return false;
+        s.toneMemories=*memories;
+    }
+    else {s.toneMemories.slots[0]=*tone;s.toneMemories.slots[1]=*tone;}
+    s.request.damping=tone->damping;
+    if (int(root["version"]) >= 2)
     {
         const int mode = int(root["interpretation"]);
         if (mode < 0 || mode > 2)

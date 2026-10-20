@@ -1,6 +1,7 @@
 #pragma once
 #include "audio/RoutingModel.h"
 #include "ir/PreparedIr.h"
+#include "ToneState.h"
 #include <juce_data_structures/juce_data_structures.h>
 #include <optional>
 namespace ch
@@ -8,6 +9,7 @@ namespace ch
 struct SavedState
 {
     juce::ValueTree parameters;
+    ToneMemories toneMemories;
     IrRequest request;
     RoutingModel routing;
     BusInterpretation interpretation = BusInterpretation::followHost;
