@@ -81,12 +81,12 @@
 - `PresetFile::save(const juce::File&, const juce::MemoryBlock&) -> juce::Result` usa temporaneo, controlla scrittura e flush prima della sostituzione; `PresetFile::load(const juce::File&, juce::MemoryBlock&) -> juce::Result` limita a 4 MiB e convalida lo stato prima di consegnarlo al processor.
 - L'editor conserva l'errore dell'ultima azione fino al successivo tentativo o chiusura esplicita; separa IR selezionato da IR ancora attivo. Disabilita il trim della preview precedente durante caricamento/errore del nuovo file, con indicazione testuale.
 
-- [ ] Scrivere test GUI: matrice 16 canali e 256 righe scrollabili a 960×640, aggiunta/rimozione, guadagni negativi, assegnazioni sparse conservate, refresh dopo restore senza cancellare edit non applicati per un semplice timer tick.
-- [ ] Scrivere test dei controlli layout/LFE e WIDTH: etichette coerenti con l'host, selezione AmbiX solo nei casi ammessi, WIDTH disabilitato senza coppie o in AmbiX. Test per tutti gli ingressi/uscite della matrice raggiungibili via GUI.
-- [ ] Scrivere regressioni per i due problemi minori della fase 1: errore preset visibile dopo più tick del timer e preview precedente non modificabile come se fosse il file appena selezionato.
-- [ ] Scrivere test preset con destinazione directory, parent non scrivibile, dati invalidi/oltre limite e successo round-trip; fallimento non modifica il preset valido precedente né lo stato del processor.
-- [ ] Eseguire i test e osservare i fallimenti; implementare i componenti sopra e mantenere waveform/decadimento sul tempo originale del file.
-- [ ] Eseguire tutta la suite e smoke reale Standalone; generare e ispezionare screenshot mono/stereo e 7.1.4/AmbiX. Aggiornare documentazione con le sole capacità verificate. Commit `feat: add immersive routing editor and reliable preset feedback`.
+- [x] Scrivere test GUI: matrice 16 canali e 256 righe scrollabili a 960×640, aggiunta/rimozione, guadagni negativi, assegnazioni sparse conservate, refresh dopo restore senza cancellare edit non applicati per un semplice timer tick.
+- [x] Scrivere test dei controlli layout/LFE e WIDTH: etichette coerenti con l'host, selezione AmbiX solo nei casi ammessi, WIDTH disabilitato senza coppie o in AmbiX. Test per tutti gli ingressi/uscite della matrice raggiungibili via GUI.
+- [x] Scrivere regressioni per i due problemi minori della fase 1: errore preset visibile dopo più tick del timer e preview precedente non modificabile come se fosse il file appena selezionato.
+- [x] Scrivere test preset con destinazione directory, parent non scrivibile, dati invalidi/oltre limite e successo round-trip; fallimento non modifica il preset valido precedente né lo stato del processor.
+- [x] Eseguire i test e osservare i fallimenti; implementare i componenti sopra e mantenere waveform/decadimento sul tempo originale del file.
+- [x] Eseguire tutta la suite e smoke reale Standalone; generare e ispezionare screenshot mono/stereo e 7.1.4/AmbiX. Aggiornare documentazione con le sole capacità verificate. Commit `feat: add immersive routing editor and reliable preset feedback`.
 
 ## Verifica del piano
 
@@ -95,4 +95,4 @@ compatibilità dello stato e GUI. La generazione dei formati e gli artefatti
 `BUILD` appartengono al piano successivo. Restano invariati i confini approvati:
 nessun renderer Atmos, metadati oggetto, decoder binaurale o libreria IR inclusa.
 
-**Stato:** approvato dall’utente; implementazione in corso.
+**Stato:** implementato e verificato su Linux; revisione finale congiunta con il piano dei formati.

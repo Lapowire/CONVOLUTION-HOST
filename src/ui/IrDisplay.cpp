@@ -110,7 +110,7 @@ void IrDisplay::mouseDown(const juce::MouseEvent &e)
 }
 void IrDisplay::mouseUp(const juce::MouseEvent &e)
 {
-    if (!impulse || !onSelection)
+    if (!isEnabled() || !impulse || !onSelection)
         return;
     float end = juce::jlimit(0.f, 1.f, (e.position.x - plot().getX()) / plot().getWidth());
     if (std::abs(end - dragStart) < 0.005f)

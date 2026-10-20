@@ -1,4 +1,5 @@
 #include "PluginEditor.h"
+#include "state/PresetFile.h"
 namespace ch
 {
 namespace
@@ -30,6 +31,9 @@ PluginEditor::PluginEditor(PluginProcessor &p)
          std::initializer_list<juce::Component *>{&library, &display, &open, &loadPreset, &savePreset,
                                                   &bypass, &decay, &irName, &status, &meter, &tabs})
         addAndMakeVisible(c);
+    irName.setComponentID("irName");
+    status.setComponentID("status");
+    display.setComponentID("irDisplay");
     irName.setFont(ui::font(18, true));
     status.setFont(ui::font(11));
     status.setColour(juce::Label::textColourId, ui::muted);
@@ -44,7 +48,11 @@ PluginEditor::PluginEditor(PluginProcessor &p)
     buttonAttachments.push_back(std::make_unique<ButtonAttachment>(processor.parameters, "bypass", bypass));
     decay.setClickingTogglesState(true);
     decay.onClick = [this] { display.setDecay(decay.getToggleState()); };
-    library.onSelect = [this](const juce::File &f) { processor.loadIr(f); };
+    library.onSelect = [this](const juce::File &f)
+    {
+        actionError.clear();
+        processor.loadIr(f);
+    };
     display.onSelection = [this](float a, float b)
     {
         changeParameter("trimStart", a);
@@ -208,24 +216,32 @@ void PluginEditor::timerCallback()
     auto s = processor.reverb.loader().status();
     auto chosen = processor.selectedState();
     display.setIr(s.ir);
-    irName.setText(s.ir                                  ? s.ir->file.getFileNameWithoutExtension()
-                   : chosen.request.file != juce::File{} ? chosen.request.file.getFileNameWithoutExtension()
-                                                         : "Choose your space",
+    display.setEnabled(s.ir && !s.loading && s.error.isEmpty() && s.ir->file == chosen.request.file);
+    irName.setText(chosen.request.file != juce::File{} ? chosen.request.file.getFileNameWithoutExtension()
+                                                       : "Choose your space",
                    juce::dontSendNotification);
+    auto bus = processor.busLayout();
+    mainControls[2].setEnabled(bus && !bus->stereoPairs.empty() && !bus->isAmbix());
     auto message = s.loading              ? juce::String("Preparing impulse response...")
                    : s.error.isNotEmpty() ? s.error
                    : s.ir                 ? juce::String(s.ir->originalSampleRate / 1000, 1) + " kHz / " +
                                 juce::String(s.ir->samples.getNumChannels()) + " IR channels / " +
                                 juce::String(s.ir->durationSeconds(), 3) + " s / zero-latency engine"
                           : "No IR loaded. Audio passes through unchanged.";
-    status.setColour(juce::Label::textColourId, s.error.isEmpty() ? ui::muted : ui::amber);
+    if ((s.loading || s.error.isNotEmpty()) && s.ir)
+        message += " / Previous IR remains active";
+    if (actionError.isNotEmpty())
+        message = actionError;
+    status.setColour(juce::Label::textColourId,
+                     s.error.isEmpty() && actionError.isEmpty() ? ui::muted : ui::amber);
     status.setText(message, juce::dontSendNotification);
     display.setTrim(float(chosen.request.startMs), float(chosen.request.endMs));
     auto in = processor.reverb.inputPeak.load(), out = processor.reverb.outputPeak.load();
     meter.setColour(juce::Label::textColourId, out > 1 ? ui::amber : ui::muted);
     meter.setText("IN " + juce::String(juce::Decibels::gainToDecibels(in, -100.f), 1) + " dB   /   OUT " +
                       juce::String(juce::Decibels::gainToDecibels(out, -100.f), 1) + " dB   /   " +
-                      juce::String(processor.getTotalNumInputChannels()) + " CH",
+                      juce::String(processor.getTotalNumInputChannels()) + " CH / " +
+                      (bus ? bus->identity() : juce::String("Unsupported bus")),
                   juce::dontSendNotification);
     const double sr = processor.getSampleRate() > 0 ? processor.getSampleRate() : 48000;
     for (std::size_t i = 0; i < 10; ++i)
@@ -269,19 +285,29 @@ void PluginEditor::preset(bool save)
             if (file == juce::File{})
                 return;
             if (save)
-            {
-                juce::MemoryBlock state;
-                safe->processor.getStateInformation(state);
-                if (!file.withFileExtension("chpreset").replaceWithData(state.getData(), state.getSize()))
-                    safe->status.setText("Could not save preset", juce::dontSendNotification);
-            }
+                safe->savePresetTo(file.withFileExtension("chpreset"));
             else
-            {
-                juce::MemoryBlock state;
-                if (file.getSize() <= 4 * 1024 * 1024 && file.loadFileAsData(state))
-                    safe->processor.setStateInformation(state.getData(), int(state.getSize()));
-            }
+                safe->loadPresetFrom(file);
         });
+}
+juce::Result PluginEditor::savePresetTo(const juce::File &file)
+{
+    juce::MemoryBlock state;
+    processor.getStateInformation(state);
+    auto result = PresetFile::save(file, state);
+    actionError = result.getErrorMessage();
+    timerCallback();
+    return result;
+}
+juce::Result PluginEditor::loadPresetFrom(const juce::File &file)
+{
+    juce::MemoryBlock state;
+    auto result = PresetFile::load(file, state);
+    actionError = result.getErrorMessage();
+    if (result)
+        processor.setStateInformation(state.getData(), int(state.getSize()));
+    timerCallback();
+    return result;
 }
 bool PluginEditor::isInterestedInFileDrag(const juce::StringArray &files)
 {

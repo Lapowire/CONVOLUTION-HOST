@@ -1,6 +1,6 @@
 # CONVOLUTION HOST
 
-Riverbero a convoluzione in **C++20 / JUCE 8**, con interfaccia nativa e librerie di impulse response WAV. Questo repository contiene la prima versione di sviluppo mono/stereo; il progetto completo è descritto nella [specifica](docs/superpowers/specs/2026-10-19-convolution-host-design.md).
+Riverbero a convoluzione in **C++20 / JUCE 8**, con interfaccia nativa e librerie di impulse response WAV. Questo repository contiene la versione di sviluppo con bus fino a 16 canali; il progetto completo è descritto nella [specifica](docs/superpowers/specs/2026-10-19-convolution-host-design.md).
 
 ![Interfaccia di CONVOLUTION HOST](docs/images/plugin-preview.png)
 
@@ -12,6 +12,7 @@ La cartella [BUILD](BUILD/README.md) documenta la consegna finale richiesta per 
 
 - Convoluzione FFT partizionata a latenza dichiarata zero; IR fino a 30 secondi a 96 kHz entro il budget del motore.
 - Mono, dual mono, stereo e true stereo con quattro percorsi LL/LR/RL/RR, da WAV multicanale o quattro WAV mono separati.
+- Matrice sparsa fino a 256 percorsi e 16 canali, layout 5.1/7.1/7.1.2/7.1.4 e AmbiX ACN/SN3D ordini 1–3. LFE wet richiede consenso esplicito; WIDTH è disabilitato nei layout senza coppie stereo.
 - Caricamento asincrono, ricampionamento, crossfade di 50 ms e conservazione del motore precedente se il nuovo caricamento fallisce.
 - Predelay, mix, WIDTH stereo, gain input/wet/output, EQ grafico a dieci bande e filtri wet.
 - Waveform per canale, decadimento energetico, trim, fade e normalizzazione comune dei canali.
@@ -71,11 +72,11 @@ Le modifiche di trim/fade/normalizzazione richiedono una preparazione asincrona 
 
 ## Verifica e limiti attuali
 
-La build Release Linux supera 47 casi di test (37 core e 10 processor/GUI). Risultati, correzioni della revisione e problemi minori ancora aperti sono elencati nello [stato di sviluppo](docs/development-status.md).
+La build Release Linux della fase multicanale supera 62 casi di test (44 core e 18 processor/GUI). Risultati, correzioni della revisione e problemi minori ancora aperti sono elencati nello [stato di sviluppo](docs/development-status.md).
 
 I test confrontano l'audio con una convoluzione diretta, provano routing e isolamento dei canali, sample rate e blocchi variabili, EQ, predelay, file corrotti, caricamenti concorrenti, sostituzioni, stato, rilocalizzazione e GUI ridimensionabile. I controlli di `new/delete` e, su Linux, di `malloc/calloc/realloc/free` intercettabili dal linker sul thread di test integrano l'audit del callback; non equivalgono a un analizzatore completo delle chiamate interne alle librerie dinamiche. Il test dell'editor produce `build/ui-preview.png` con un IR sintetico.
 
-VST3 e Standalone sono i target di questa fase. Multicanale immersivo, AmbiX, CLAP, AU e AAX restano nella roadmap: non vengono simulati tramite un bus stereo. AU richiede macOS; AAX richiede SDK Avid e condizioni di distribuzione appropriate. Bed/oggetti Atmos saranno elaborati come canali esposti dalla DAW, mantenendo metadati e rendering nell'host.
+VST3 e Standalone sono i target di questa fase. CLAP, AU e AAX sono in integrazione nella fase successiva. AU richiede macOS; AAX richiede SDK Avid e condizioni di distribuzione appropriate. I canali di bed/oggetti esposti dalla DAW sono elaborati come audio; metadati e rendering Atmos restano nell’host.
 
 La compilazione e il rendering offline non certificano la compatibilità con ogni DAW. Firma, notarizzazione, installer e verifiche su hardware audio sono attività successive. Gli IR lunghi e le matrici dense richiedono misure CPU sulla macchina di destinazione; il limite di 512 MiB è una stima conservativa dei motori, non della memoria totale del processo.
 

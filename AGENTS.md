@@ -50,5 +50,5 @@ Leggere `docs/superpowers/specs/2026-10-19-convolution-host-design.md` prima di 
 - Ambiente cloud Debian senza root: eseguire `bash scripts/setup-cloud.sh`, poi `source /workspace/toolchain/activate.sh`. I pacchetti Debian vanno verificati attraverso indici firmati, non estratti da download arbitrari.
 - `ch_tests` verifica il core offline; `ch_plugin_tests` verifica processor, stato e GUI e genera `build/ui-preview.png`. Il runner stampa il conteggio dei casi effettivamente eseguiti.
 - Su Linux i test intercettano anche le allocazioni C raggiungibili dal linker; le chiamate interne alle librerie dinamiche richiedono audit separato.
-- I target attuali sono VST3 e Standalone mono/stereo, inclusi quattro percorsi true stereo. Multicanale immersivo, AmbiX, AU, AAX e CLAP restano fasi successive; non dichiararli implementati.
+- I target verificati attuali sono VST3 e Standalone fino a 16 canali, inclusi true stereo, layout immersivi e AmbiX 1–3. AU, AAX e CLAP sono nella fase di integrazione; dichiarare verificato un wrapper solo dopo la sua build e i suoi test.
 - In questo repository le build Linux e i test sono stati eseguiti. Verificare nuovamente i comandi dopo ogni modifica; non dedurre da queste prove il funzionamento su macOS/Windows o in tutte le DAW.

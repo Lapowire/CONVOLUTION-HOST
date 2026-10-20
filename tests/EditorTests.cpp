@@ -137,3 +137,109 @@ TEST(waveform_selection_uses_original_source_time_after_trim)
     test::near(start, 500, 0.01f);
     test::near(end, 750, 0.01f);
 }
+#include "ui/MatrixEditor.h"
+#include "ui/PluginEditor.h"
+TEST(matrix_editor_all_channels_and_rows_are_reachable)
+{
+    auto layout =
+        *ch::BusLayout::fromHost(juce::AudioChannelSet::ambisonic(3), ch::BusInterpretation::followHost);
+    ch::MatrixEditor matrix;
+    matrix.setSize(600, 100);
+    ch::RoutingModel model(std::vector<ch::Route>{});
+    for (int i = 0; i < 256; ++i)
+        model.routes.push_back({i % 16, (i / 16) % 16, i % 16, i % 2 ? -0.5f : 0.5f});
+    matrix.setModel(layout, model);
+    auto result = matrix.model();
+    REQUIRE(result.routes.size() == 256);
+    test::near(result.routes.back().gain, -0.5f);
+    auto *viewport = dynamic_cast<juce::Viewport *>(findControl(matrix, "matrixViewport"));
+    REQUIRE(viewport);
+    REQUIRE(viewport->getViewedComponent()->getHeight() > viewport->getHeight());
+    viewport->setViewPosition(0, 100000);
+    auto *last = dynamic_cast<juce::ComboBox *>(findControl(matrix, "route255.input"));
+    REQUIRE(last);
+    REQUIRE(last->getNumItems() == 16);
+    REQUIRE(
+        viewport->getViewedComponent()->getLocalBounds().contains(last->getParentComponent()->getBounds()));
+    auto *remove = dynamic_cast<juce::Button *>(findControl(matrix, "matrixRemove"));
+    REQUIRE(remove);
+    remove->onClick();
+    REQUIRE(matrix.model().routes.size() == 255);
+    auto *add = dynamic_cast<juce::Button *>(findControl(matrix, "matrixAdd"));
+    REQUIRE(add);
+    add->onClick();
+    REQUIRE(matrix.model().routes.size() == 256);
+    add->onClick();
+    REQUIRE(matrix.model().routes.size() == 256);
+}
+TEST(immersive_editor_controls_and_pending_preview_are_safe)
+{
+    test::TempDir tmp;
+    ch::PluginProcessor p(juce::File{});
+    auto buses = p.getBusesLayout();
+    buses.inputBuses.set(0, juce::AudioChannelSet::create7point1point4());
+    buses.outputBuses.set(0, juce::AudioChannelSet::create7point1point4());
+    REQUIRE(p.setBusesLayout(buses));
+    p.prepareToPlay(48000, 256);
+    ch::PluginEditor editor(p);
+    editor.setSize(960, 640);
+    dynamic_cast<juce::TabbedComponent *>(findControl(editor, "tabs"))->setCurrentTabIndex(2);
+    juce::MessageManager::getInstance()->runDispatchLoopUntil(100);
+    REQUIRE(!findControl(editor, "width")->isEnabled());
+    auto *lfe = dynamic_cast<juce::ToggleButton *>(findControl(editor, "lfeWet"));
+    REQUIRE(lfe);
+    lfe->setToggleState(true, juce::sendNotificationSync);
+    REQUIRE(p.selectedState().routing.lfeWetEnabled);
+    auto *interpretation = dynamic_cast<juce::ComboBox *>(findControl(editor, "busInterpretation"));
+    REQUIRE(interpretation);
+    REQUIRE(!interpretation->isItemEnabled(3));
+    juce::AudioBuffer<float> ir(1, 64);
+    ir.clear();
+    ir.setSample(0, 0, 1);
+    p.loadIr(tmp.wav("first.wav", ir));
+    for (int i = 0; i < 50 && p.reverb.loader().status().loading; ++i)
+        juce::MessageManager::getInstance()->runDispatchLoopUntil(10);
+    p.loadIr(tmp.dir.getChildFile("missing.wav"));
+    juce::MessageManager::getInstance()->runDispatchLoopUntil(150);
+    auto *display = findControl(editor, "irDisplay");
+    REQUIRE(display);
+    REQUIRE(!display->isEnabled());
+    auto *name = dynamic_cast<juce::Label *>(findControl(editor, "irName"));
+    REQUIRE(name);
+    REQUIRE(name->getText().contains("missing"));
+    auto dir = tmp.dir.getChildFile("unwritable.chpreset");
+    REQUIRE(dir.createDirectory());
+    REQUIRE(editor.savePresetTo(dir).failed());
+    juce::MessageManager::getInstance()->runDispatchLoopUntil(200);
+    auto *status = dynamic_cast<juce::Label *>(findControl(editor, "status"));
+    REQUIRE(status);
+    REQUIRE(status->getText().containsIgnoreCase("save"));
+    auto image = editor.createComponentSnapshot(editor.getLocalBounds());
+    auto output =
+        juce::File::getCurrentWorkingDirectory().getChildFile("immersive-preview.png").createOutputStream();
+    REQUIRE(output);
+    REQUIRE(juce::PNGImageFormat{}.writeImageToStream(image, *output));
+}
+TEST(matrix_draft_survives_timer_ticks_and_applies_explicitly)
+{
+    ch::PluginProcessor p(juce::File{});
+    auto buses = p.getBusesLayout();
+    buses.inputBuses.set(0, juce::AudioChannelSet::discreteChannels(16));
+    buses.outputBuses.set(0, juce::AudioChannelSet::discreteChannels(16));
+    REQUIRE(p.setBusesLayout(buses));
+    p.setRouting({{{0, 1, 0, -0.5f}}});
+    ch::RoutingPanel panel(p);
+    panel.setSize(600, 160);
+    auto *input = dynamic_cast<juce::ComboBox *>(findControl(panel, "route0.input"));
+    REQUIRE(input);
+    input->setSelectedId(16, juce::sendNotificationSync);
+    juce::MessageManager::getInstance()->runDispatchLoopUntil(250);
+    REQUIRE(input->getSelectedId() == 16);
+    REQUIRE(p.selectedState().routing.routes[0].input == 0);
+    for (auto *c : panel.getChildren())
+        if (auto *button = dynamic_cast<juce::TextButton *>(c);
+            button && button->getButtonText() == "Apply routing")
+            button->onClick();
+    REQUIRE(p.selectedState().routing.routes[0].input == 15);
+    test::near(p.selectedState().routing.routes[0].gain, -0.5f);
+}

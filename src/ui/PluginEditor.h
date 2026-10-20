@@ -12,6 +12,8 @@ class PluginEditor final : public juce::AudioProcessorEditor,
   public:
     explicit PluginEditor(PluginProcessor &);
     ~PluginEditor() override;
+    juce::Result savePresetTo(const juce::File &);
+    juce::Result loadPresetFrom(const juce::File &);
     void paint(juce::Graphics &) override;
     void resized() override;
     bool isInterestedInFileDrag(const juce::StringArray &) override;
@@ -45,6 +47,7 @@ class PluginEditor final : public juce::AudioProcessorEditor,
     std::vector<std::unique_ptr<ButtonAttachment>> buttonAttachments;
     std::unique_ptr<juce::FileChooser> chooser;
     bool choosing = false;
+    juce::String actionError;
     juce::Rectangle<int> mainArea;
 };
 } // namespace ch

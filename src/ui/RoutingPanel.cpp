@@ -1,12 +1,25 @@
 #include "RoutingPanel.h"
+#include <set>
 namespace ch
 {
 RoutingPanel::RoutingPanel(PluginProcessor &p) : processor(p)
 {
-    mode.addItem("Mono / stereo diagonal", 1);
+    mode.addItem("Automatic diagonal (host layout)", 1);
     mode.addItem("True stereo: multi-channel WAV", 2);
     mode.addItem("True stereo: four mono WAV files", 3);
+    mode.addItem("Explicit channel matrix", 4);
     mode.setComponentID("routingMode");
+    interpretation.addItem("Follow host layout", 1);
+    interpretation.addItem("Discrete channels", 2);
+    interpretation.addItem("AmbiX ACN / SN3D", 3);
+    interpretation.setComponentID("busInterpretation");
+    lfeWet.setComponentID("lfeWet");
+    addAndMakeVisible(interpretation);
+    addAndMakeVisible(lfeWet);
+    addAndMakeVisible(matrix);
+    interpretation.onChange = [this]
+    { processor.setBusInterpretation(BusInterpretation(interpretation.getSelectedId() - 1)); };
+    lfeWet.onClick = [this] { processor.setLfeWetEnabled(lfeWet.getToggleState()); };
     addAndMakeVisible(mode);
     addAndMakeVisible(apply);
     for (int i = 0; i < 4; ++i)
@@ -40,7 +53,9 @@ RoutingPanel::RoutingPanel(PluginProcessor &p) : processor(p)
         RoutingModel model;
         model.automatic = mode.getSelectedId() == 1;
         const int selected = mode.getSelectedId();
-        if (selected != 1)
+        if (selected == 4)
+            model = matrix.model();
+        else if (selected != 1)
         {
             for (int i = 0; i < 4; ++i)
             {
@@ -53,8 +68,23 @@ RoutingPanel::RoutingPanel(PluginProcessor &p) : processor(p)
                          polarities[std::size_t(i)] *
                              juce::Decibels::decibelsToGain(float(gains[std::size_t(i)].getValue()))});
             }
-            if (model.routes.empty())
-                model.routes.push_back({0, 0, 0, 0});
+        }
+        model.lfeWetEnabled = lfeWet.getToggleState();
+        if (auto bus = processor.busLayout(); bus && !model.automatic)
+        {
+            model.sourceLayout = bus->identity();
+            auto status = processor.reverb.loader().status();
+            const int irCount = selected == 3 ? 4
+                                : status.ir && status.ir->file == processor.selectedState().request.file
+                                    ? status.ir->samples.getNumChannels()
+                                    : 16;
+            auto checked = model.validate(*bus, irCount);
+            if (checked.failed())
+            {
+                apply.setButtonText("Invalid routing");
+                apply.setTooltip(checked.getErrorMessage());
+                return;
+            }
         }
         if (selected == 3)
         {
@@ -67,7 +97,7 @@ RoutingPanel::RoutingPanel(PluginProcessor &p) : processor(p)
             processor.loadTrueStereo(sourceFiles, std::move(model));
         }
         else
-            processor.loadIr(processor.selectedState().request.file, std::move(model));
+            processor.setRouting(std::move(model));
         apply.setButtonText("Apply routing");
     };
 }
@@ -76,7 +106,27 @@ void RoutingPanel::refreshFromState()
     shownRevision = processor.selectionVersion();
     const auto state = processor.selectedState();
     const bool files = state.request.additionalFiles.size() == 3;
-    mode.setSelectedId(files ? 3 : state.routing.routes.empty() ? 1 : 2, juce::dontSendNotification);
+    auto bus = processor.busLayout();
+    const bool multichannel = bus && bus->channels.size() > 2;
+    std::set<std::pair<int, int>> positions;
+    bool repeated = false;
+    for (auto r : state.routing.routes)
+        repeated = !positions.insert({r.input, r.output}).second || repeated;
+    mode.setSelectedId(files                                                      ? 3
+                       : state.routing.automatic                                  ? 1
+                       : multichannel || repeated || state.routing.routes.empty() ? 4
+                                                                                  : 2,
+                       juce::dontSendNotification);
+    interpretation.setSelectedId(int(state.interpretation) + 1, juce::dontSendNotification);
+    auto host = processor.getChannelLayoutOfBus(true, 0);
+    interpretation.setItemEnabled(2, host.isDiscreteLayout());
+    interpretation.setItemEnabled(3, BusLayout::fromHost(host, BusInterpretation::ambix).has_value());
+    lfeWet.setToggleState(state.routing.lfeWetEnabled, juce::dontSendNotification);
+    lfeWet.setEnabled(bus && bus->lfe >= 0);
+    mode.setItemEnabled(2, !multichannel);
+    mode.setItemEnabled(3, !multichannel);
+    if (bus)
+        matrix.setModel(*bus, state.routing);
     sourceFiles = {};
     if (files)
     {
@@ -110,8 +160,30 @@ void RoutingPanel::refreshFromState()
 void RoutingPanel::updateMode()
 {
     bool files = mode.getSelectedId() == 3;
+    auto bus = processor.busLayout();
+    const bool showMatrix = mode.getSelectedId() == 4 || (bus && bus->channels.size() > 2);
+    matrix.setEnabled(mode.getSelectedId() == 4);
+    matrix.setVisible(showMatrix);
+    if (showMatrix)
+    {
+        if (auto bus = processor.busLayout())
+        {
+            auto state = processor.selectedState();
+            auto model = state.routing;
+            if (model.automatic)
+            {
+                auto status = processor.reverb.loader().status();
+                model = RoutingModel::forLayout(*bus, status.ir ? status.ir->samples.getNumChannels() : 1,
+                                                state.routing.lfeWetEnabled);
+            }
+            matrix.setModel(*bus, model);
+        }
+    }
     for (std::size_t i = 0; i < 4; ++i)
     {
+        channels[i].setVisible(!showMatrix);
+        gains[i].setVisible(!showMatrix);
+        sourceButtons[i].setVisible(!showMatrix);
         channels[i].setEnabled(mode.getSelectedId() != 1);
         for (int id = 2; id <= 17; ++id)
             channels[i].setItemEnabled(id, !files);
@@ -152,10 +224,9 @@ void RoutingPanel::paint(juce::Graphics &g)
 {
     g.setColour(ui::muted);
     g.setFont(ui::font(11));
-    g.drawText("Explicit LL / LR / RL / RR paths. Source WAVs stay unchanged.", 16, 5, getWidth() - 32, 18,
-               juce::Justification::left);
+
     const std::array<const char *, 4> names{"L > L", "L > R", "R > L", "R > R"};
-    for (int i = 0; i < 4; ++i)
+    for (int i = 0; i < 4 && !matrix.isVisible(); ++i)
     {
         g.setColour(ui::text);
         g.drawText(names[std::size_t(i)], 16, 60 + i * rowHeight(), 58, rowHeight(),
@@ -164,6 +235,9 @@ void RoutingPanel::paint(juce::Graphics &g)
 }
 void RoutingPanel::resized()
 {
+    interpretation.setBounds(16, 0, 220, 24);
+    lfeWet.setBounds(244, 0, 200, 24);
+    matrix.setBounds(16, 60, getWidth() - 32, std::max(0, getHeight() - 60));
     mode.setBounds(16, 28, getWidth() - 200, 26);
     apply.setBounds(getWidth() - 174, 28, 158, 26);
     for (int i = 0; i < 4; ++i)
