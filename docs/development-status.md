@@ -10,7 +10,7 @@ rendering Atmos restano nella DAW.
 ## Verifiche locali
 
 - Build Release Linux VST3, CLAP e Standalone, con CMake e dipendenze fissate.
-- 79 casi in 9 gruppi CTest: 45 core, 19 processor/editor, 12 Python e 3 test dei
+- 88 casi in 9 gruppi CTest: 45 core, 22 processor/editor, 18 Python e 3 test dei
   wrapper, incluso il rifiuto di un percorso inesistente.
 - VST3 e CLAP caricati come moduli reali da un host di test: factory,
   istanziazione, parametri, salvataggio/ripristino e audio verificati.
@@ -36,7 +36,7 @@ La fase stereo aveva già corretto sette problemi importanti: eccezioni dei
 worker, hash degli IR, ripristino senza IR, automazione del predelay, routing
 sparso, coordinate del trim e persistenza delle preferenze. Questa fase risolve
 anche i due problemi GUI rimasti: errore di salvataggio preset troppo breve e
-vecchia preview modificabile durante una nuova selezione fallita/pendente.
+vecchia preview modificabile durante una nuova selezione fallita/pendente. La revisione finale ha aggiunto il rifiuto delle interpretazioni salvate incompatibili, la conservazione dei gain delle matrici stereo, l’aggiornamento dei nomi canale al cambio bus e la correzione del flag MSVC FFTW. Lo staging controlla identità compilata, esecuzione fresca dei test, hash dei moduli ed entrypoint; un eseguibile generico non viene accettato come plugin.
 
 Lo stato passa a versione 2 e legge la versione 1. Un'associazione esplicita
 conserva l'identità del bus; un numero di canali uguale non autorizza una
@@ -57,10 +57,7 @@ attivi. Le sorgenti upstream verificate non sono modificate.
 | Windows VST3/CLAP/AAX/EXE | Target e runner predisposti; esecuzione nativa non verificata |
 | macOS VST3/CLAP/AU/AAX/APP universal | Target e runner predisposti; esecuzione nativa e auval non verificati |
 
-L'API GitHub per consultare le esecuzioni restituisce `Forbidden`. La workflow
-compila nativamente su Linux/Windows/macOS, valida i moduli e le architetture,
-esegue auval su macOS e produce i pacchetti `BUILD`; il suo esito remoto deve
-essere verificato separatamente. Non sono stati generati in Linux file AU,
+La prima esecuzione nativa [39379201602](https://github.com/Lapowire/CONVOLUTION-HOST/actions/runs/39379201602) ha prodotto il pacchetto Linux. Windows si è fermato nei test CTest e macOS in auval, dopo la compilazione dei target. L’API restituisce `Forbidden` e i log dettagliati richiedono accesso; le annotazioni pubbliche indicano le fasi fallite. La pipeline include ora diagnostiche limitate alle uscite dei test per individuare le cause al tentativo successivo. Non sono stati generati in Linux file AU,
 AAX o applicazioni Windows/macOS tramite rinomina di binari.
 
 Gli SDK AAX e VST3 sono inclusi nella dipendenza JUCE fissata. Non sono presenti
@@ -70,5 +67,4 @@ eseguita in una DAW con hardware audio; neppure TSan o misure del picco di
 memoria del processo. Le [licenze effettive](dependency-licenses.md) accompagnano
 le consegne; la GPL dei sorgenti originali è conservata.
 
-La revisione finale congiunta di questa fase è ancora da completare prima della
-pubblicazione conclusiva.
+La revisione finale congiunta è completata. Le correzioni sono documentate nelle [decisioni di build e revisione](review-and-build-decisions.md); la validazione nativa Windows/macOS resta aperta.

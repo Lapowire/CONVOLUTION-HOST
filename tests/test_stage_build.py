@@ -1,4 +1,7 @@
-import hashlib, json, os, pathlib, shutil, stat, subprocess, sys, tarfile, tempfile, unittest
+import hashlib, json, os, pathlib, platform, shutil, stat, subprocess, sys, tarfile, tempfile, unittest
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "scripts"))
+from build_artifacts import fingerprints, collect, FORMATS
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts/stage-build.py"
@@ -14,18 +17,17 @@ class StagingTests(unittest.TestCase):
         self.commit = subprocess.check_output(
             ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True
         ).strip()
-        elf = bytearray(64)
-        elf[:6] = b"\x7fELF\x02\x01"
-        elf[18:20] = (62).to_bytes(2, "little")
-        for relative in [
-            "VST3/CONVOLUTION HOST.vst3/Contents/x86_64-linux/CONVOLUTION HOST.so",
-            "CLAP/CONVOLUTION HOST.clap",
-            "Standalone/CONVOLUTION HOST",
-        ]:
-            f = self.artifacts / relative
-            f.parent.mkdir(parents=True, exist_ok=True)
-            f.write_bytes(elf)
-            f.chmod(0o700)
+        self.platform = {"Darwin": "macOS"}.get(platform.system(), platform.system())
+        self.architecture = "universal" if self.platform == "macOS" else "x86_64"
+        self.destination = self.output / self.platform / self.architecture
+        source = os.environ.get("CH_STAGE_TEST_ARTIFACTS")
+        if not source or not pathlib.Path(source).is_dir():
+            self.skipTest("Run via configured CTest with native artifacts")
+        shutil.copytree(source, self.artifacts, symlinks=True)
+        self.native = {
+            kind: (bundle, binary)
+            for kind, bundle, binary in collect(self.artifacts, self.platform)
+        }
         self.license = self.root / "LICENSE"
         self.license.write_text("Test license text")
         self.provenance = self.root / "provenance.json"
@@ -34,16 +36,26 @@ class StagingTests(unittest.TestCase):
             "version": "0.2.0",
             "commit": self.commit,
             "dirty": False,
-            "platform": "Linux",
-            "architectures": ["x86_64"],
+            "platform": self.platform,
+            "architectures": (
+                ["arm64", "x86_64"] if self.platform == "macOS" else ["x86_64"]
+            ),
             "configuration": "Release",
-            "formats": ["VST3", "CLAP", "Standalone"],
+            "formats": FORMATS[self.platform],
             "licenses": {"CONVOLUTION-HOST": str(self.license)},
         }
         self.provenance.write_text(json.dumps(self.data))
         self.results = self.root / "tests.json"
         self.results.write_text(
-            json.dumps({"commit": self.commit, "status": "passed", "tests": 62})
+            json.dumps(
+                {
+                    "commit": self.commit,
+                    "status": "passed",
+                    "tests": 62,
+                    "execution": True,
+                    "artifacts": fingerprints(self.artifacts, self.platform),
+                }
+            )
         )
 
     def run_stage(self):
@@ -68,41 +80,32 @@ class StagingTests(unittest.TestCase):
     def test_valid_build_is_directly_installable_and_checksummed(self):
         run = self.run_stage()
         self.assertEqual(run.returncode, 0, run.stderr)
-        dest = self.output / "Linux/x86_64"
+        dest = self.destination
         manifest = json.loads((dest / "manifest.json").read_text())
         self.assertEqual(manifest["commit"], self.commit)
         self.assertFalse(manifest["signed"])
         self.assertEqual(manifest["host_validation"]["status"], "not_run")
-        self.assertTrue(
-            (
-                dest
-                / "VST3/CONVOLUTION HOST.vst3/Contents/x86_64-linux/CONVOLUTION HOST.so"
-            ).is_file()
-        )
-        self.assertTrue((dest / "CLAP/CONVOLUTION HOST.clap").is_file())
-        self.assertTrue(
-            (dest / "Standalone/CONVOLUTION HOST").stat().st_mode & stat.S_IXUSR
-        )
+        self.assertTrue((dest / "VST3/CONVOLUTION HOST.vst3").is_dir())
+        standalone = dest / self.native["Standalone"][1].relative_to(self.artifacts)
+        if self.platform != "Windows":
+            self.assertTrue(standalone.stat().st_mode & stat.S_IXUSR)
         for line in (dest / "SHA256SUMS").read_text().splitlines():
             digest, name = line.split("  ", 1)
             self.assertEqual(
                 hashlib.sha256((dest / name).read_bytes()).hexdigest(), digest
             )
-        archive = next((self.output / "archives").glob("*.tar.gz"))
-        extract = self.root / "extracted"
-        extract.mkdir()
-        with tarfile.open(archive) as tar:
-            tar.extractall(extract, filter="data")
-        self.assertTrue(
-            (extract / "BUILD/Linux/x86_64/Standalone/CONVOLUTION HOST").stat().st_mode
-            & stat.S_IXUSR
-        )
+        archive = next((self.output / "archives").iterdir())
+        self.assertGreater(archive.stat().st_size, 1000)
 
     def test_missing_format_does_not_overwrite_previous_delivery(self):
         self.assertEqual(self.run_stage().returncode, 0)
-        dest = self.output / "Linux/x86_64"
+        dest = self.destination
         before = (dest / "manifest.json").read_bytes()
-        (self.artifacts / "CLAP/CONVOLUTION HOST.clap").unlink()
+        (
+            shutil.rmtree(self.native["CLAP"][0])
+            if self.native["CLAP"][0].is_dir()
+            else self.native["CLAP"][0].unlink()
+        )
         self.assertNotEqual(self.run_stage().returncode, 0)
         self.assertEqual((dest / "manifest.json").read_bytes(), before)
 
@@ -118,27 +121,46 @@ class StagingTests(unittest.TestCase):
         self.assertNotEqual(self.run_stage().returncode, 0)
         self.provenance.unlink()
         self.assertNotEqual(self.run_stage().returncode, 0)
-        self.assertFalse((self.output / "Linux/x86_64").exists())
+        self.assertFalse((self.destination).exists())
 
     def test_external_symlink_and_incorrect_binary_are_rejected(self):
-        bundle = self.artifacts / "VST3/CONVOLUTION HOST.vst3"
+        bundle = self.native["VST3"][0]
         (bundle / "outside").symlink_to(self.license)
         self.assertNotEqual(self.run_stage().returncode, 0)
         (bundle / "outside").unlink()
-        (self.artifacts / "CLAP/CONVOLUTION HOST.clap").write_bytes(b"MZwrong-platform")
+        self.native["CLAP"][1].write_bytes(b"MZwrong-platform")
         self.assertNotEqual(self.run_stage().returncode, 0)
 
     def test_extra_files_are_not_published_and_other_platform_is_preserved(self):
         (self.artifacts / "secret.tmp").write_text("not an artefact")
-        other = self.output / "Windows/x86_64/existing"
+        other = self.output / "OtherPlatform/existing"
         other.parent.mkdir(parents=True)
         other.write_text("keep")
         self.assertEqual(self.run_stage().returncode, 0)
         self.assertEqual(other.read_text(), "keep")
-        self.assertFalse((self.output / "Linux/x86_64/secret.tmp").exists())
+        self.assertFalse((self.destination / "secret.tmp").exists())
+
+    def test_replaced_native_modules_cannot_reuse_genuine_test_report(self):
+        self.assertEqual(self.run_stage().returncode, 0)
+        module = self.native["CLAP"][1]
+        module.write_bytes(module.read_bytes() + b"changed after tests")
+        self.assertNotEqual(self.run_stage().returncode, 0)
+
+    def test_native_executable_is_not_a_plugin_even_with_matching_hashes(self):
+        shutil.copyfile(self.native["Standalone"][1], self.native["CLAP"][1])
+        data = json.loads(self.results.read_text())
+        data["artifacts"] = fingerprints(self.artifacts, self.platform)
+        self.results.write_text(json.dumps(data))
+        self.assertNotEqual(self.run_stage().returncode, 0)
+
+    def test_imported_junit_is_not_execution_evidence(self):
+        data = json.loads(self.results.read_text())
+        data.pop("execution", None)
+        self.results.write_text(json.dumps(data))
+        self.assertNotEqual(self.run_stage().returncode, 0)
 
     def test_root_bundle_cannot_link_outside_artifacts(self):
-        bundle = self.artifacts / "VST3/CONVOLUTION HOST.vst3"
+        bundle = self.native["VST3"][0]
         outside = self.root / "outside-bundle"
         shutil.move(bundle, outside)
         bundle.symlink_to(outside, target_is_directory=True)

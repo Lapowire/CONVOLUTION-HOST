@@ -1,4 +1,5 @@
 #include "PluginProcessor.h"
+#include "BuildIdentity.h"
 #include "ui/PluginEditor.h"
 namespace ch
 {
@@ -88,6 +89,7 @@ void PluginProcessor::getStateInformation(juce::MemoryBlock &dest)
     auto state = selectedState();
     state.parameters = parameters.copyState();
     auto tree = StateStore::encode(state);
+    tree.setProperty("buildIdentity", CH_BUILD_ID, nullptr);
     juce::MemoryOutputStream stream(dest, false);
     tree.writeToStream(stream);
 }
@@ -235,8 +237,9 @@ void PluginProcessor::submit()
     state.request.expectedHash = state.hash;
     state.request.relativePath = state.relativePath;
     state.request.searchRoots = library.rootPaths();
-    submittedRequest.store(
-        reverb.loader().request(std::move(state.request), std::move(state.routing), busLayout()));
+    submittedRequest.store(reverb.loader().request(
+        std::move(state.request), std::move(state.routing),
+        BusLayout::fromHost(getChannelLayoutOfBus(true, 0), state.interpretation), true));
 }
 } // namespace ch
 juce::AudioProcessor *JUCE_CALLTYPE createPluginFilter()

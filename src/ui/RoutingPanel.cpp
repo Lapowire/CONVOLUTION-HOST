@@ -104,18 +104,24 @@ RoutingPanel::RoutingPanel(PluginProcessor &p) : processor(p)
 void RoutingPanel::refreshFromState()
 {
     shownRevision = processor.selectionVersion();
+    shownHost = processor.getChannelLayoutOfBus(true, 0);
     const auto state = processor.selectedState();
     const bool files = state.request.additionalFiles.size() == 3;
     auto bus = processor.busLayout();
     const bool multichannel = bus && bus->channels.size() > 2;
     std::set<std::pair<int, int>> positions;
-    bool repeated = false;
+    bool repeated = false, requiresMatrix = false;
     for (auto r : state.routing.routes)
+    {
         repeated = !positions.insert({r.input, r.output}).second || repeated;
-    mode.setSelectedId(files                                                      ? 3
-                       : state.routing.automatic                                  ? 1
-                       : multichannel || repeated || state.routing.routes.empty() ? 4
-                                                                                  : 2,
+        const auto gainDb = juce::Decibels::gainToDecibels(std::abs(r.gain));
+        requiresMatrix = requiresMatrix || (r.gain != 0 && (gainDb < -60 || gainDb > 12)) ||
+                         (files && r.irChannel != r.input * 2 + r.output);
+    }
+    mode.setSelectedId(files && !requiresMatrix && !repeated                                        ? 3
+                       : state.routing.automatic                                                    ? 1
+                       : multichannel || repeated || requiresMatrix || state.routing.routes.empty() ? 4
+                                                                                                    : 2,
                        juce::dontSendNotification);
     interpretation.setSelectedId(int(state.interpretation) + 1, juce::dontSendNotification);
     auto host = processor.getChannelLayoutOfBus(true, 0);

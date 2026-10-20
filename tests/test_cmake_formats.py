@@ -31,6 +31,28 @@ class FormatTests(unittest.TestCase):
                 self.assertNotEqual(run.returncode, 0, run.stdout + run.stderr)
                 self.assertIn(word, (run.stdout + run.stderr))
 
+    def test_fftw_bigobj_is_an_option_instead_of_a_definition(self):
+        with tempfile.TemporaryDirectory(prefix="ch-fftw-flags-") as tmp:
+            source = pathlib.Path(tmp)
+            (source / "dummy.c").write_text("int dummy(void) { return 0; }\n")
+            (source / "CMakeLists.txt").write_text(
+                "cmake_minimum_required(VERSION 3.22)\nproject(Flags C)\n"
+                "add_library(fake STATIC dummy.c)\n"
+                "target_compile_definitions(fake PRIVATE KEEP=1 /bigobj)\n"
+                f'include("{ROOT.as_posix()}/cmake/FftCompilerOptions.cmake")\n'
+                "ch_fix_fftw_msvc_flags(fake)\n"
+                "get_target_property(defs fake COMPILE_DEFINITIONS)\n"
+                "get_target_property(opts fake COMPILE_OPTIONS)\n"
+                'if("/bigobj" IN_LIST defs OR NOT "/bigobj" IN_LIST opts OR NOT "KEEP=1" IN_LIST defs)\n'
+                'message(FATAL_ERROR "Malformed FFTW compiler flags")\nendif()\n'
+            )
+            run = subprocess.run(
+                ["cmake", "-S", tmp, "-B", str(source / "out")],
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+
     def test_incomplete_aax_sdk_fails_explicitly(self):
         run = subprocess.run(
             ["cmake", "-P", str(ROOT / "tests/cmake/FormatOptions.cmake")],

@@ -22,6 +22,10 @@ if(NOT APPLE)
       URL https://deb.debian.org/debian/pool/main/f/fftw3/fftw3_3.3.10.orig.tar.gz
       URL_HASH SHA256=56c932549852cddcfafdab3820b0200c7742675be92179e59e6215b340e26467)
     FetchContent_MakeAvailable(fftw)
+    if(MSVC)
+      include(${CMAKE_CURRENT_LIST_DIR}/FftCompilerOptions.cmake)
+      ch_fix_fftw_msvc_flags(fftw3f)
+    endif()
     # JUCE's FFTW adapter requests ESTIMATE plans without NO_BUFFERING. FFTW's
     # rdft2-buffered solver mallocs during execute, which is unsafe for audio.
     # Build a narrowly amended copy of mapflags.c; never edit the pinned sources.

@@ -42,12 +42,9 @@ jobs:
         run: cmake --build .build --config Release --parallel 2
       - name: Test processor, GUI and real plugin modules
         run: |
-          if [[ "$RUNNER_OS" == Linux ]]; then
-            xvfb-run -a ctest --test-dir .build -C Release --output-on-failure --output-junit test-results.xml
-          else
-            ctest --test-dir .build -C Release --output-on-failure --output-junit test-results.xml
-          fi
-          python scripts/test-report.py --junit .build/test-results.xml --output .build/test-results.json
+          runner=()
+          if [[ "$RUNNER_OS" == Linux ]]; then runner+=(xvfb-run -a); fi
+          "${runner[@]}" python scripts/test-report.py --run --build-dir .build --junit .build/test-results.xml --output .build/test-results.json --artifacts .build/ConvolutionHost_artefacts/Release --provenance .build/build-provenance-Release.json
       - name: Check native binaries and architecture slices
         run: python scripts/check-native-artifacts.py --platform '${{ matrix.cli }}' --artifacts .build/ConvolutionHost_artefacts/Release
       - name: Validate Audio Unit in auval
@@ -55,6 +52,16 @@ jobs:
         run: python scripts/validate-au.py --component '.build/ConvolutionHost_artefacts/Release/AU/CONVOLUTION HOST.component'
       - name: Collect installable bundles in BUILD
         run: python scripts/stage-build.py --artifacts .build/ConvolutionHost_artefacts/Release --provenance .build/build-provenance-Release.json --test-results .build/test-results.json --output BUILD
+      - name: Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: diagnostics-${{ matrix.platform }}
+          if-no-files-found: warn
+          path: |
+            .build/test-results.xml
+            .build/Testing/Temporary/LastTest.log
+            .build/build-provenance-Release.json
       - name: Upload platform delivery and test evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:

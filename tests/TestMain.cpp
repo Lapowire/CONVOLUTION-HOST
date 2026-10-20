@@ -1,3 +1,4 @@
+#include "BuildIdentity.h"
 #include "TestSupport.h"
 namespace test
 {
@@ -7,6 +8,7 @@ int main(int argc, char **argv)
 {
     if (argc > 1 && std::string(argv[1]) == "--worker-allocation-probe")
         return test::runWorkerAllocationProbe();
+    std::cout << "Build identity: " << CH_BUILD_ID << std::endl;
     int failed = 0;
     for (const auto &t : test::cases())
     {

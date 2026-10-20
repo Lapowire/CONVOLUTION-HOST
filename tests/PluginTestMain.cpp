@@ -1,8 +1,10 @@
+#include "BuildIdentity.h"
 #include "TestSupport.h"
 #include <juce_gui_basics/juce_gui_basics.h>
 int main()
 {
     juce::ScopedJuceInitialiser_GUI gui;
+    std::cout << "Build identity: " << CH_BUILD_ID << std::endl;
     int failed = 0;
     for (const auto &t : test::cases())
     {

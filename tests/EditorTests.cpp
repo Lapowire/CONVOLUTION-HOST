@@ -277,3 +277,39 @@ TEST(ambix_editor_snapshot_has_all_channel_labels)
     REQUIRE(output);
     REQUIRE(juce::PNGImageFormat{}.writeImageToStream(image, *output));
 }
+
+TEST(stereo_matrix_gain_is_preserved_when_opened_and_applied)
+{
+    ch::PluginProcessor p(juce::File{});
+    p.setRouting({{{0, 0, 0, 16.f}}});
+    ch::RoutingPanel panel(p);
+    panel.setSize(600, 180);
+    auto *mode = dynamic_cast<juce::ComboBox *>(findControl(panel, "routingMode"));
+    REQUIRE(mode && mode->getSelectedId() == 4);
+    for (auto *c : panel.getChildren())
+        if (auto *button = dynamic_cast<juce::TextButton *>(c);
+            button && button->getButtonText() == "Apply routing")
+            button->onClick();
+    test::near(p.selectedState().routing.routes[0].gain, 16.f);
+}
+TEST(routing_panel_tracks_host_layout_changes_without_selection_edits)
+{
+    ch::PluginProcessor p(juce::File{});
+    auto setLayout = [&](juce::AudioChannelSet channels)
+    {
+        auto buses = p.getBusesLayout();
+        buses.inputBuses.set(0, channels);
+        buses.outputBuses.set(0, channels);
+        REQUIRE(p.setBusesLayout(buses));
+    };
+    setLayout(juce::AudioChannelSet::discreteChannels(4));
+    p.setRouting({{{0, 0, 0, 1}}});
+    ch::RoutingPanel panel(p);
+    panel.setSize(600, 180);
+    setLayout(juce::AudioChannelSet::create5point1());
+    juce::MessageManager::getInstance()->runDispatchLoopUntil(250);
+    auto *input = dynamic_cast<juce::ComboBox *>(findControl(panel, "route0.input"));
+    REQUIRE(input && input->getNumItems() == 6);
+    REQUIRE(input->getItemText(0) == "L");
+    REQUIRE(dynamic_cast<juce::ToggleButton *>(findControl(panel, "lfeWet"))->isEnabled());
+}

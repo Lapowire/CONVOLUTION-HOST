@@ -1,3 +1,4 @@
+#include "BuildIdentity.h"
 #include <iostream>
 #include <juce_audio_utils/juce_audio_utils.h>
 #include <stdexcept>
@@ -11,6 +12,11 @@ void require(bool value, const char *message)
 {
     if (!value)
         throw std::runtime_error(message);
+}
+void verifyIdentity(const void *data, std::size_t size)
+{
+    const std::string bytes(static_cast<const char *>(data), size);
+    require(bytes.find(CH_BUILD_ID) != std::string::npos, "Module build identity differs from test runner");
 }
 void vst3(const juce::String &path)
 {
@@ -26,6 +32,13 @@ void vst3(const juce::String &path)
     juce::MemoryBlock state;
     instance->getStateInformation(state);
     require(state.getSize() > 0, "No VST3 state");
+    auto envelope = juce::AudioProcessor::getXmlFromBinary(state.getData(), int(state.getSize()));
+    require(envelope && envelope->hasTagName("VST3PluginState"), "VST3 host state envelope missing");
+    auto *component = envelope->getChildByName("IComponent");
+    juce::MemoryBlock componentState;
+    require(component && componentState.fromBase64Encoding(component->getAllSubText()),
+            "VST3 component state missing");
+    verifyIdentity(componentState.getData(), componentState.getSize());
     instance->setStateInformation(state.getData(), int(state.getSize()));
     instance->prepareToPlay(48000, 256);
     juce::AudioBuffer<float> audio(
@@ -138,6 +151,7 @@ void clap(const juce::String &path)
     Memory memory;
     clap_ostream_t outputStream{&memory, writeState};
     require(state->save(p, &outputStream) && !memory.bytes.empty(), "CLAP save failed");
+    verifyIdentity(memory.bytes.data(), memory.bytes.size());
     clap_istream_t inputStream{&memory, readState};
     require(state->load(p, &inputStream), "CLAP restore failed");
     require(p->activate(p, 48000, 64, 256), "CLAP activate failed");
@@ -188,6 +202,7 @@ int main(int argc, char **argv)
 #endif
         else
             throw std::runtime_error("Unknown format");
+        std::cout << "Build identity: " << CH_BUILD_ID << std::endl;
         std::cout << "PASS " << argv[2] << " native module: factory, instance, parameters, state and audio\n";
         return 0;
     }

@@ -29,3 +29,5 @@ platform. Re-run these tests after any backend or dependency change.
 
 Source and complete build instructions:
 https://github.com/Lapowire/CONVOLUTION-HOST
+
+Il target CMake corregge inoltre il flag MSVC `/bigobj` della release fissata: viene rimosso dalle definizioni e aggiunto alle opzioni di compilazione. Le sorgenti FFTW restano inalterate.

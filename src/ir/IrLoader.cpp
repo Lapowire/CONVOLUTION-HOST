@@ -72,16 +72,23 @@ void IrLoader::configure(double sr, int block, int channels)
     oldBuffer.setSize(channels, blockSize);
     oldBuffer.clear();
 }
-std::uint64_t IrLoader::request(IrRequest req, RoutingModel routing, std::optional<BusLayout> layout)
+std::uint64_t IrLoader::request(IrRequest req, RoutingModel routing, std::optional<BusLayout> layout,
+                                bool requireLayout)
 {
     std::uint64_t id;
     {
         std::lock_guard lock(mutex);
         id = latest.fetch_add(1) + 1;
         req.sampleRate = rate;
-        pending =
-            Job{std::move(req),   std::move(routing), std::move(layout), rate, blockSize, channelCount, id,
-                generation.load()};
+        pending = Job{std::move(req),
+                      std::move(routing),
+                      std::move(layout),
+                      requireLayout,
+                      rate,
+                      blockSize,
+                      channelCount,
+                      id,
+                      generation.load()};
         current.loading = true;
         current.error = {};
         current.requestId = id;
@@ -134,7 +141,9 @@ void IrLoader::run()
             if (!job)
                 continue;
             DecodeResult decoded;
-            if (job->request.expectedHash.isNotEmpty())
+            if (job->requireLayout && !job->layout)
+                decoded.error = "Saved bus interpretation is incompatible with the host layout";
+            else if (job->request.expectedHash.isNotEmpty())
             {
                 SavedState saved;
                 saved.request = job->request;

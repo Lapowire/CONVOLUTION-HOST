@@ -100,3 +100,19 @@ def collect(root, platform, formats=None):
             raise ValueError(f"Incomplete bundle: {source}")
         result.append((kind, source, binary))
     return result
+
+
+def fingerprints(root, platform):
+    """Identity of every delivered file, including bundle metadata/resources."""
+    import hashlib
+
+    root = Path(root).resolve()
+    result = {}
+    for _, source, _ in collect(root, platform):
+        files = source.rglob("*") if source.is_dir() else [source]
+        for path in files:
+            if path.is_file():
+                result[path.relative_to(root).as_posix()] = hashlib.sha256(
+                    path.read_bytes()
+                ).hexdigest()
+    return result

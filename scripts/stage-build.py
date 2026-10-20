@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Collect verified native plugins, preserving installable bundles and executable bits."""
 import argparse, hashlib, json, os, pathlib, re, shutil, subprocess, sys, tarfile, tempfile, uuid, zipfile
-from build_artifacts import collect, FORMATS
+from build_artifacts import collect, FORMATS, fingerprints
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 
@@ -40,7 +40,8 @@ def stage(args):
     ):
         raise ValueError("Provenance is stale, dirty or invalid")
     if (
-        results.get("commit") != commit
+        results.get("execution") is not True
+        or results.get("commit") != commit
         or results.get("status") != "passed"
         or not isinstance(results.get("tests"), int)
         or results["tests"] < 1
@@ -64,6 +65,19 @@ def stage(args):
     ):
         raise ValueError("Unexpected architecture/configuration")
     artifacts = collect(args.artifacts, platform, formats)
+    if results.get("artifacts") != fingerprints(args.artifacts, platform):
+        raise ValueError("Artifacts differ from the binaries verified by CTest")
+    subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "scripts/check-native-artifacts.py"),
+            "--platform",
+            {"Linux": "linux", "Windows": "windows", "macOS": "macos"}[platform],
+            "--artifacts",
+            str(args.artifacts),
+        ],
+        check=True,
+    )
     runtime = {}
     if platform == "Linux" and shutil.which("objdump"):
         symbols = ""

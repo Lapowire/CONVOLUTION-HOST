@@ -176,3 +176,44 @@ TEST(layout_change_supersedes_pending_ir_and_preserves_semantic_routing)
     REQUIRE(audio.getMagnitude(0, 0, 64) < 1e-5f);
     REQUIRE(audio.getMagnitude(15, 0, 64) > 0.1f);
 }
+
+TEST(incompatible_restored_interpretation_is_rejected_without_replacing_active_ir)
+{
+    test::TempDir tmp;
+    juce::AudioBuffer<float> ir(1, 1);
+    ir.setSample(0, 0, 0.5f);
+    auto file = tmp.wav("unit.wav", ir);
+    ch::PluginProcessor source(juce::File{});
+    layout(source, juce::AudioChannelSet::discreteChannels(6));
+    source.setBusInterpretation(ch::BusInterpretation::discrete);
+    source.prepareToPlay(48000, 256);
+    source.loadIr(file, ch::RoutingModel({{3, 3, 0, 1}}));
+    wait(source);
+    juce::MemoryBlock saved;
+    source.getStateInformation(saved);
+    ch::PluginProcessor target(juce::File{});
+    layout(target, juce::AudioChannelSet::create5point1());
+    target.prepareToPlay(48000, 256);
+    param(target, "mix", 100);
+    target.loadIr(file);
+    wait(target);
+    juce::AudioBuffer<float> audio(6, 256);
+    audio.clear();
+    juce::MidiBuffer midi;
+    target.processBlock(audio, midi);
+    auto active = target.reverb.loader().activeRequest();
+    REQUIRE(active != 0);
+    target.setStateInformation(saved.getData(), int(saved.getSize()));
+    wait(target);
+    REQUIRE(target.reverb.loader().status().error.isNotEmpty());
+    REQUIRE(!target.busLayout());
+    param(target, "mix", 100);
+    for (int i = 0; i < 12; ++i)
+    {
+        audio.clear();
+        audio.setSample(3, 0, 1);
+        target.processBlock(audio, midi);
+        test::near(audio.getSample(3, 0), 0);
+    }
+    REQUIRE(target.reverb.loader().activeRequest() == active);
+}

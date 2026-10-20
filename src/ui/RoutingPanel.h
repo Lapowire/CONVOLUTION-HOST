@@ -17,10 +17,12 @@ class RoutingPanel : public juce::Component, private juce::Timer
     void refreshFromState();
     void timerCallback() override
     {
-        if (shownRevision != processor.selectionVersion())
+        if (shownRevision != processor.selectionVersion() ||
+            shownHost != processor.getChannelLayoutOfBus(true, 0))
             refreshFromState();
     }
     std::uint64_t shownRevision = 0;
+    juce::AudioChannelSet shownHost;
     std::array<float, 4> polarities{1, 1, 1, 1};
     void updateMode();
     int rowHeight() const { return std::min(24, std::max(18, (getHeight() - 60) / 4)); }

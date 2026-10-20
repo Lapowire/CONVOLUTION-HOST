@@ -30,9 +30,7 @@ Standalone sono applicazioni separate; su macOS si copia `.app` in Applications.
 La build Linux viene generata e verificata nel workspace cloud. Le build
 Windows/macOS richiedono l'esecuzione della workflow
 [Native plugin builds](https://github.com/Lapowire/CONVOLUTION-HOST/actions/workflows/build.yml).
-L'API GitHub restituisce `Forbidden` in questa sessione: il successo dei job e
-la disponibilità degli artefatti remoti non sono ancora verificati qui. Non sono
-presentati file Windows/macOS fittizi.
+La prima esecuzione ha prodotto l’artefatto Linux; Windows si è fermato nei test e macOS in auval. Le build Windows/macOS non sono quindi consegne verificate. L’API restituisce `Forbidden`; le annotazioni pubbliche e le diagnostiche CI permettono di seguire i tentativi. Vedere lo [stato](../docs/development-status.md).
 
 Gli output generati sono esclusi dal controllo versione: aprire il workspace
 `BUILD` oppure scaricare gli artefatti della workflow. Gli archivi piattaforma

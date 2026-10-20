@@ -100,4 +100,4 @@ macOS AU da Linux/Windows, e build AAX da firma/validazione. Il piano multicanal
 precedente copre le funzioni audio ancora mancanti. Nessun installer commerciale,
 servizio di aggiornamento o gestione licenze viene aggiunto senza richiesta.
 
-**Stato:** implementazione locale completata; revisione finale in corso. Le voci sui job nativi si riferiscono alla pipeline predisposta: esecuzione Windows/macOS, auval e raccolta dei loro output restano NON VERIFICATI per accesso API GitHub `Forbidden`.
+**Stato:** implementazione locale e revisione finale completate; 88 casi Linux passano. La prima esecuzione CI ha prodotto il pacchetto Linux, mentre Windows si è fermato nei test e macOS in auval. Le diagnostiche per i tentativi successivi sono integrate; la consegna Windows/macOS richiede ancora test/auval verdi. API `Forbidden`, annotazioni pubbliche consultabili.
