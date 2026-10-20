@@ -2,6 +2,7 @@
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_core/juce_core.h>
 #include <memory>
+#include "SpectralDamping.h"
 #include <vector>
 namespace ch
 {
@@ -11,6 +12,7 @@ struct IrRequest
     double sampleRate = 48000;
     double startMs = 0, endMs = 0, fadeInMs = 0, fadeOutMs = 0;
     bool normalise = false;
+    DampingSettings damping;
     juce::String expectedHash, relativePath;
     juce::StringArray searchRoots;
     std::vector<juce::File> additionalFiles;
@@ -18,6 +20,7 @@ struct IrRequest
 };
 struct PreparedIr
 {
+    DampingSettings damping;
     juce::AudioBuffer<float> samples;
     double sampleRate = 48000, originalSampleRate = 48000;
     double sourceDurationSeconds = 0, sourceStartMs = 0;

@@ -10,7 +10,7 @@ DecodeResult fail(const char *message)
 {
     return {nullptr, message};
 }
-DecodeResult finish(std::shared_ptr<PreparedIr> ir, const IrRequest &req)
+DecodeResult finish(std::shared_ptr<PreparedIr> ir, const IrRequest &req, const std::function<bool()>& cancelled)
 {
     const int fullN = ir->samples.getNumSamples(), channels = ir->samples.getNumChannels();
     const auto start = std::int64_t(std::llround(req.startMs * req.sampleRate / 1000));
@@ -44,6 +44,9 @@ DecodeResult finish(std::shared_ptr<PreparedIr> ir, const IrRequest &req)
         peak = std::max(peak, ir->samples.getMagnitude(c, 0, n));
     if (req.normalise && peak > 0)
         ir->samples.applyGain(1 / peak);
+    auto dampingResult=SpectralDamping::apply(ir->samples,req.sampleRate,req.damping,cancelled);
+    if(dampingResult.failed())return {nullptr,dampingResult.getErrorMessage()};
+    ir->damping=req.damping;
     const int bins = std::min(1024, n);
     ir->waveform.assign(std::size_t(bins), 0);
     ir->decayDb.assign(std::size_t(bins), -120);
@@ -80,8 +83,10 @@ std::size_t IrDecoder::estimateBytes(int samples, int routes, int blockSize)
     return std::size_t(samples) * std::size_t(routes) * 64ull +
            std::size_t(routes) * std::size_t(blockSize) * 256ull + 4ull * 1024 * 1024;
 }
-DecodeResult IrDecoder::decode(const IrRequest &req) const
+DecodeResult IrDecoder::decode(const IrRequest &req, const std::function<bool()>& cancelled) const
 {
+    if(!req.damping.isValid())return fail("Invalid damping curve");
+    if(cancelled&&cancelled())return fail("IR preparation superseded");
     if (!std::isfinite(req.sampleRate) || req.sampleRate < 8000 || req.sampleRate > 384000)
         return fail("Unsupported sample rate");
     for (double v : {req.startMs, req.endMs, req.fadeInMs, req.fadeOutMs})
@@ -101,7 +106,7 @@ DecodeResult IrDecoder::decode(const IrRequest &req) const
             IrRequest child;
             child.file = file;
             child.sampleRate = req.sampleRate;
-            auto result = decode(child);
+            auto result = decode(child,cancelled);
             if (!result)
                 return result;
             if (result.ir->samples.getNumChannels() != 1)
@@ -125,7 +130,7 @@ DecodeResult IrDecoder::decode(const IrRequest &req) const
             ir->sourceHashes.add(source.hash);
         }
         ir->hash = juce::SHA256(hashes.toRawUTF8(), std::size_t(hashes.getNumBytesAsUTF8())).toHexString();
-        return finish(std::move(ir), req);
+        return finish(std::move(ir), req,cancelled);
     }
     if (!req.file.hasFileExtension("wav"))
         return fail("Select a WAV impulse response");
@@ -179,6 +184,6 @@ DecodeResult IrDecoder::decode(const IrRequest &req) const
         return fail("IR became unreadable while loading");
     ir->hash = juce::SHA256(*hashStream).toHexString();
     ir->sourceHashes.add(ir->hash);
-    return finish(std::move(ir), req);
+    return finish(std::move(ir), req,cancelled);
 }
 } // namespace ch
