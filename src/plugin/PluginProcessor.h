@@ -1,5 +1,6 @@
 #pragma once
 #include "Parameters.h"
+#include "ToneController.h"
 #include "ir/IrLibrary.h"
 #include "state/StateStore.h"
 namespace ch
@@ -41,6 +42,7 @@ class PluginProcessor final : public juce::AudioProcessor,
     SavedState selectedState() const;
     std::uint64_t selectionVersion() const noexcept { return selectionRevision.load(); }
     void servicePendingChanges();
+    ToneController& toneController() noexcept {return tone;}
     juce::AudioProcessorValueTreeState parameters;
     ReverbProcessor reverb;
     IrLibrary library;
@@ -54,6 +56,7 @@ class PluginProcessor final : public juce::AudioProcessor,
     }
     void submit();
     ParameterRefs refs;
+    ToneController tone;
     mutable std::mutex stateMutex;
     mutable SavedState selected;
     std::atomic<std::uint64_t> selectionRevision{1};

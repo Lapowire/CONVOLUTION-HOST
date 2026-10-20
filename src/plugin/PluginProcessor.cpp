@@ -12,7 +12,7 @@ PluginProcessor::PluginProcessor(juce::File prefs)
                          .withInput("Input", juce::AudioChannelSet::stereo(), true)
                          .withOutput("Output", juce::AudioChannelSet::stereo(), true)),
       parameters(*this, nullptr, "PARAMETERS", createParameterLayout()), library(std::move(prefs)),
-      refs(parameters)
+      refs(parameters),tone(parameters)
 {
     for (auto id : irIds)
         parameters.addParameterListener(id, this);
@@ -91,6 +91,7 @@ void PluginProcessor::getStateInformation(juce::MemoryBlock &dest)
 {
     auto state = selectedState();
     state.parameters = parameters.copyState();
+    state.toneMemories=tone.snapshot();
     auto tree = StateStore::encode(state);
     tree.setProperty("buildIdentity", CH_BUILD_ID, nullptr);
     juce::MemoryOutputStream stream(dest, false);
@@ -115,6 +116,7 @@ void PluginProcessor::setStateInformation(const void *data, int size)
         child.setProperty("value",value,nullptr);
     }
     parameters.replaceState(normalized);
+    tone.restore(state.toneMemories);
     {
         std::lock_guard lock(stateMutex);
         selected = std::move(state);
