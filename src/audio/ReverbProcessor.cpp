@@ -9,15 +9,6 @@ float bounded(float v, float lo, float hi, float fallback)
 {
     return std::isfinite(v) ? juce::jlimit(lo, hi, v) : fallback;
 }
-std::array<double, 5> peak(double rate, double freq, double db)
-{
-    if (freq >= rate * 0.5 || std::abs(db) < 1.e-6)
-        return {1, 0, 0, 0, 0};
-    const double a = std::pow(10, db / 40), w = 2 * juce::MathConstants<double>::pi * freq / rate,
-                 alpha = std::sin(w) / (2 * 1.4), c = std::cos(w), norm = 1 / (1 + alpha / a);
-    return {(1 + alpha * a) * norm, -2 * c * norm, (1 - alpha * a) * norm, -2 * c * norm,
-            (1 - alpha / a) * norm};
-}
 std::array<double, 5> pass(double rate, double freq, bool high)
 {
     const double w = 2 * juce::MathConstants<double>::pi * std::min(freq, rate * 0.45) / rate,
@@ -62,6 +53,7 @@ void ReverbProcessor::prepare(double sr, int maxBlockSize, int channels)
         f = Filter{};
         f.smoothing = 1 - std::exp(-1 / (sr * 0.02));
     }
+    parametricEq.prepare(sr,channels);
     impulses.configure(sr, blockSize, channels);
     inputPeak.store(0);
     outputPeak.store(0);
@@ -84,6 +76,7 @@ void ReverbProcessor::configureWidthPairs(std::span<const StereoPair> pairs)
 void ReverbProcessor::reset() noexcept
 {
     impulses.reset();
+    parametricEq.reset();
     delay.clear();
     writePosition = 0;
     for (auto &f : filters)
@@ -111,11 +104,10 @@ void ReverbProcessor::process(juce::AudioBuffer<float> &buffer, const ParameterS
         else
             smooth[i].setTargetValue(targets[i]);
     }
-    for (std::size_t i = 0; i < 10; ++i)
-        filters[i].target = peak(rate, eqFrequencies[i], bounded(p.eq[i], -12, 12, 0));
-    filters[10].target = p.filtersEnabled ? pass(rate, bounded(p.highpass, 20, 2000, 20), true)
+    parametricEq.setTargets({p.eq,p.eqShape,p.eqBypass});
+    filters[0].target = p.filtersEnabled ? pass(rate, bounded(p.highpass, 20, 2000, 20), true)
                                           : std::array<double, 5>{1, 0, 0, 0, 0};
-    filters[11].target = p.filtersEnabled ? pass(rate, bounded(p.lowpass, 1000, 20000, 20000), false)
+    filters[1].target = p.filtersEnabled ? pass(rate, bounded(p.lowpass, 1000, 20000, 20000), false)
                                           : std::array<double, 5>{1, 0, 0, 0, 0};
     for (auto &f : filters)
         if (initial)
@@ -163,6 +155,7 @@ void ReverbProcessor::process(juce::AudioBuffer<float> &buffer, const ParameterS
         }
         juce::AudioBuffer<float> wetView(wet.getArrayOfWritePointers(), channelCount, n);
         impulses.processWet(wetView);
+        parametricEq.process(wetView);
         const bool active = impulses.hasActive();
         for (int i = 0; i < n; ++i)
         {

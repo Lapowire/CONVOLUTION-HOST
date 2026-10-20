@@ -1,15 +1,16 @@
 #pragma once
 #include "ir/IrLoader.h"
+#include "ParametricEq.h"
 #include <array>
 #include <span>
 namespace ch
 {
-inline constexpr std::array<float, 10> eqFrequencies{31.5f,  63.f,   125.f,  250.f,  500.f,
-                                                     1000.f, 2000.f, 4000.f, 8000.f, 16000.f};
 struct ParameterSnapshot
 {
     float inputGain = 0, outputGain = 0, wetGain = 0, mix = 25, predelay = 0, width = 100;
     std::array<float, 10> eq{};
+    std::array<EqBandShape,10> eqShape=defaultEqShapes();
+    bool eqBypass=false;
     float highpass = 20, lowpass = 20000;
     bool filtersEnabled = false, bypass = false;
 };
@@ -35,7 +36,8 @@ class ReverbProcessor
     };
     IrLoader impulses;
     juce::AudioBuffer<float> wet, dry, original, delay;
-    std::array<Filter, 12> filters;
+    std::array<Filter, 2> filters;
+    ParametricEq parametricEq;
     std::array<juce::SmoothedValue<float>, 7> smooth;
     double rate = 48000;
     int blockSize = 512, channelCount = 2, writePosition = 0;
