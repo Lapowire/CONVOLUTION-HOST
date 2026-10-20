@@ -243,3 +243,37 @@ TEST(matrix_draft_survives_timer_ticks_and_applies_explicitly)
     REQUIRE(p.selectedState().routing.routes[0].input == 15);
     test::near(p.selectedState().routing.routes[0].gain, -0.5f);
 }
+TEST(ambix_editor_snapshot_has_all_channel_labels)
+{
+    test::TempDir tmp;
+    ch::PluginProcessor p(juce::File{});
+    auto buses = p.getBusesLayout();
+    buses.inputBuses.set(0, juce::AudioChannelSet::ambisonic(3));
+    buses.outputBuses.set(0, juce::AudioChannelSet::ambisonic(3));
+    REQUIRE(p.setBusesLayout(buses));
+    p.prepareToPlay(48000, 256);
+    juce::AudioBuffer<float> impulse(16, 4800);
+    for (int c = 0; c < 16; ++c)
+        for (int i = 0; i < 4800; ++i)
+            impulse.setSample(c, i,
+                              float(std::sin(i * (0.1 + c * 0.01)) * std::exp(-i / (400. + c * 40)) * .5));
+    p.loadIr(tmp.wav("Ambisonic Chamber.wav", impulse));
+    for (int i = 0; i < 100 && p.reverb.loader().status().loading; ++i)
+        juce::MessageManager::getInstance()->runDispatchLoopUntil(10);
+    REQUIRE(p.reverb.loader().status().error.isEmpty());
+    ch::PluginEditor editor(p);
+    editor.setSize(1180, 900);
+    dynamic_cast<juce::TabbedComponent *>(findControl(editor, "tabs"))->setCurrentTabIndex(2);
+    auto *mode = dynamic_cast<juce::ComboBox *>(findControl(editor, "routingMode"));
+    REQUIRE(mode);
+    mode->setSelectedId(4, juce::sendNotificationSync);
+    juce::MessageManager::getInstance()->runDispatchLoopUntil(100);
+    auto *input = dynamic_cast<juce::ComboBox *>(findControl(editor, "route15.input"));
+    REQUIRE(input);
+    REQUIRE(input->getItemText(15) == "ACN 15");
+    auto image = editor.createComponentSnapshot(editor.getLocalBounds());
+    auto output =
+        juce::File::getCurrentWorkingDirectory().getChildFile("ambix-preview.png").createOutputStream();
+    REQUIRE(output);
+    REQUIRE(juce::PNGImageFormat{}.writeImageToStream(image, *output));
+}

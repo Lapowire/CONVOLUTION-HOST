@@ -28,7 +28,7 @@ Leggere `docs/superpowers/specs/2026-10-19-convolution-host-design.md` prima di 
 - Fissare le revisioni delle dipendenze; conservare TLS e verifiche di integrità. Non seguire branch mobili per build riproducibili.
 - Usare il checkout esistente: le attività cloud sono già isolate. Non creare worktree senza una richiesta dell'utente.
 - Rendere opzionali i target vincolati a piattaforma o SDK; un target richiesto esplicitamente deve fallire con una diagnosi se manca un prerequisito, senza essere escluso silenziosamente.
-- AU richiede macOS. AAX richiede SDK e condizioni Avid. CLAP richiede la sua integrazione dedicata. Non dichiarare un formato verificato perché un altro compila.
+- AU richiede macOS. JUCE 8.0.6 include lo SDK AAX con alternativa GPLv3; AAX richiede Windows/macOS e, per Pro Tools normale, firma/condizioni Avid/PACE. CLAP richiede la sua integrazione dedicata. Non dichiarare un formato verificato perché un altro compila.
 - Elaborare audio di bed/oggetti esposti dall'host non equivale a implementare un renderer Atmos o a gestire metadati degli oggetti.
 - Conservare la licenza esistente e verificare le condizioni delle dipendenze prima della distribuzione.
 
@@ -50,5 +50,8 @@ Leggere `docs/superpowers/specs/2026-10-19-convolution-host-design.md` prima di 
 - Ambiente cloud Debian senza root: eseguire `bash scripts/setup-cloud.sh`, poi `source /workspace/toolchain/activate.sh`. I pacchetti Debian vanno verificati attraverso indici firmati, non estratti da download arbitrari.
 - `ch_tests` verifica il core offline; `ch_plugin_tests` verifica processor, stato e GUI e genera `.build/ui-preview.png`. Il runner stampa il conteggio dei casi effettivamente eseguiti.
 - Su Linux i test intercettano anche le allocazioni C raggiungibili dal linker; le chiamate interne alle librerie dinamiche richiedono audit separato.
-- I target verificati attuali sono VST3 e Standalone fino a 16 canali, inclusi true stereo, layout immersivi e AmbiX 1–3. AU, AAX e CLAP sono nella fase di integrazione; dichiarare verificato un wrapper solo dopo la sua build e i suoi test.
+- I target verificati Linux sono VST3, CLAP e Standalone fino a 16 canali, inclusi true stereo, layout immersivi e AmbiX 1–3. AU/AAX e Windows/macOS sono configurati nella CI nativa; dichiararli verificati solo dopo build e test effettivi su tali piattaforme.
 - In questo repository le build Linux e i test sono stati eseguiti. Verificare nuovamente i comandi dopo ogni modifica; non dedurre da queste prove il funzionamento su macOS/Windows o in tutte le DAW.
+
+- `BUILD/` contiene plugin completi e manifest generati; non usare `build/` per nuovi intermedi, perché può collidere con `BUILD/` su Windows/macOS. Usare `.build/`.
+- Lo staging richiede provenienza del commit corrente e test verdi; i binari generati sono ignorati in Git e distribuiti tramite archivi/artifact. Non presentare AAX non firmato come pronto per Pro Tools normale.

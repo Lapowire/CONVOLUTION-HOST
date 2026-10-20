@@ -1,37 +1,52 @@
-# Artefatti compilati
+# Plugin compilati da copiare nella DAW
 
-Questa è la cartella di consegna richiesta per CONVOLUTION HOST. `BUILD/`
-conterrà esclusivamente le consegne e la relativa documentazione. Il piano
-prevede di spostare gli intermedi CMake dall'attuale `build/` a `.build/`:
-su Windows e sui Mac con filesystem non sensibile alle maiuscole, `build` e
-`BUILD` possono indicare la stessa directory.
+`BUILD/` è la cartella di consegna. Gli intermedi CMake usano `.build/`, evitando
+collisioni fra `build` e `BUILD` su Windows e sui filesystem Mac non sensibili
+alle maiuscole.
 
-## Struttura prevista
-
-| Directory | Artefatti |
+| Directory | File o bundle completi |
 | --- | --- |
-| `Linux/x86_64/` | VST3, CLAP, eseguibile standalone Linux |
-| `Windows/x86_64/` | VST3, CLAP, AAX, standalone `.exe` |
-| `macOS/universal/` | VST3, CLAP, AU `.component`, AAX, standalone `.app` per arm64 e x86_64 |
+| `Linux/x86_64/VST3/` | `CONVOLUTION HOST.vst3` |
+| `Linux/x86_64/CLAP/` | `CONVOLUTION HOST.clap` |
+| `Linux/x86_64/Standalone/` | `CONVOLUTION HOST` eseguibile Linux |
+| `Windows/x86_64/` | directory VST3, CLAP, AAX e Standalone `.exe`, prodotte dal runner Windows |
+| `macOS/universal/` | directory VST3, CLAP, AU `.component`, AAX e Standalone `.app`, prodotte dal runner macOS per arm64 e x86_64 |
 
-Ogni piattaforma avrà `manifest.json`, `SHA256SUMS` e `LICENSES/`. Bundle e
-permessi eseguibili saranno preservati in archivi `.tar.gz` per Linux/macOS e
-`.zip` per Windows. I nomi e la struttura originali dei bundle saranno mantenuti.
-AU è previsto solo su macOS; AAX solo su Windows/macOS.
+Copiare **il file o bundle completo**, senza aprirlo per estrarre il binario
+interno. I percorsi abituali sono:
 
-**Stato attuale: contratto di consegna; nessun binario finale pubblicato qui.**
-La versione esistente mono/stereo compila VST3 e Standalone Linux in
-`build/ConvolutionHost_artefacts/Release/`. Non è la consegna finale multicanale.
-Gli artefatti finali verranno raccolti dopo l'implementazione e i controlli
-descritti nei piani [multicanale](../docs/superpowers/plans/2026-10-19-multichannel-plugin.md)
-e [formati e packaging](../docs/superpowers/plans/2026-10-19-platform-builds.md).
+| Formato | Linux | Windows | macOS |
+| --- | --- | --- | --- |
+| VST3 | `~/.vst3/` | `C:\Program Files\Common Files\VST3\` | `~/Library/Audio/Plug-Ins/VST3/` |
+| CLAP | `~/.clap/` | `C:\Program Files\Common Files\CLAP\` | `~/Library/Audio/Plug-Ins/CLAP/` |
+| AU | — | — | `~/Library/Audio/Plug-Ins/Components/` |
+| AAX | — | `C:\Program Files\Common Files\Avid\Audio\Plug-Ins\` | `/Library/Application Support/Avid/Audio/Plug-Ins/` |
 
-Il manifest dovrà distinguere compilazione, test automatizzati, validazione in
-host e firma. Un file AAX compilato ma non firmato non implica utilizzabilità
-nella normale versione di Pro Tools. Firma Avid/PACE, firma Windows, Developer
-ID e notarizzazione Apple non sono disponibili in questo ambiente e non
-verranno dichiarate eseguite.
+Le cartelle effettivamente scansionate dipendono dalla DAW. Gli eseguibili
+Standalone sono applicazioni separate; su macOS si copia `.app` in Applications.
 
-I binari di grandi dimensioni saranno distribuiti tramite artefatti CI o GitHub
-Release; l'archivio scaricato avrà `BUILD/` come radice e potrà essere estratto
-nel checkout. Non verranno creati file segnaposto con estensioni di plugin.
+## Disponibilità e download
+
+La build Linux viene generata e verificata nel workspace cloud. Le build
+Windows/macOS richiedono l'esecuzione della workflow
+[Native plugin builds](https://github.com/Lapowire/CONVOLUTION-HOST/actions/workflows/build.yml).
+L'API GitHub restituisce `Forbidden` in questa sessione: il successo dei job e
+la disponibilità degli artefatti remoti non sono ancora verificati qui. Non sono
+presentati file Windows/macOS fittizi.
+
+Gli output generati sono esclusi dal controllo versione: aprire il workspace
+`BUILD` oppure scaricare gli artefatti della workflow. Gli archivi piattaforma
+sono in `BUILD/archives/`, con radice interna `BUILD/<piattaforma>/<architettura>`;
+il job di assemblaggio produce `convolution-host-all-platforms.tar.gz` solo dopo
+il successo di tutte e tre le build native.
+
+Ogni consegna contiene `manifest.json`, `SHA256SUMS`, `INSTALL.txt` e `LICENSES/`.
+Il manifest riporta commit, architetture compilate/testate, esito dei test e stato
+della firma. Su Linux sono riportate le versioni minime ABI rilevate: la build
+cloud corrente richiede GLIBC 2.38 e GLIBCXX 3.4.32. FFTW è incluso staticamente;
+restano i normali runtime desktop indicati da `ldd`.
+
+I file AAX compilati senza firma Avid/PACE sono build di sviluppo e non sono
+pronti per la normale versione di Pro Tools. Firma Windows, Developer ID e
+notarizzazione Apple non sono state eseguite. I test automatici non sostituiscono
+una verifica nella DAW. Vedere [stato e limiti](../docs/development-status.md).

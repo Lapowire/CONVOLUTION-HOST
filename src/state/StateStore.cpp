@@ -12,7 +12,10 @@ juce::ValueTree StateStore::encode(const SavedState &s)
     juce::ValueTree ir("IR");
     ir.setProperty("automatic", s.routing.automatic, nullptr);
     ir.setProperty("lfeWet", s.routing.lfeWetEnabled, nullptr);
-    ir.setProperty("layout", s.routing.sourceLayout, nullptr);
+    ir.setProperty("layout",
+                   !s.routing.automatic && s.routing.sourceLayout.isEmpty() ? juce::String("legacy-stereo")
+                                                                            : s.routing.sourceLayout,
+                   nullptr);
     ir.setProperty("path", s.request.file.getFullPathName(), nullptr);
     ir.setProperty("hash", s.hash, nullptr);
     ir.setProperty("relative", s.relativePath, nullptr);
@@ -71,6 +74,8 @@ bool StateStore::decode(const juce::ValueTree &root, SavedState &out)
         s.routing.lfeWetEnabled = bool(ir["lfeWet"]);
         s.routing.sourceLayout = ir["layout"].toString();
         auto id = s.routing.sourceLayout;
+        if (!s.routing.automatic && id.isEmpty())
+            return false;
         bool valid = id.isEmpty() || id == "legacy-stereo";
         for (auto set : {juce::AudioChannelSet::mono(), juce::AudioChannelSet::stereo(),
                          juce::AudioChannelSet::create5point1(), juce::AudioChannelSet::create7point1(),

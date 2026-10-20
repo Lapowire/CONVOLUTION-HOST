@@ -1,27 +1,98 @@
-name: Linux plugin and DSP tests
-on: [push, pull_request]
+name: Native plugin builds
+on: [push, pull_request, workflow_dispatch]
 permissions:
   contents: read
 jobs:
-  linux:
-    runs-on: ubuntu-latest
+  native:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            platform: Linux
+            cli: linux
+          - os: windows-2022
+            platform: Windows
+            cli: windows
+          - os: macos-14
+            platform: macOS
+            cli: macos
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - name: Install JUCE system dependencies
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      - name: Linux dependencies
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake libasound2-dev libx11-dev libxext-dev libxinerama-dev libxrandr-dev libxcursor-dev libfreetype6-dev libfontconfig1-dev libfftw3-dev xvfb
-      - name: Configure
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-      - name: Build VST3, Standalone and tests
-        run: cmake --build build --parallel 2
-      - name: Test DSP, state and editor
-        run: xvfb-run -a ctest --test-dir build --output-on-failure
-      - name: Archive Linux builds and GUI preview
+          sudo apt-get install -y libasound2-dev libx11-dev libxext-dev libxinerama-dev libxrandr-dev libxcursor-dev libfreetype6-dev libfontconfig1-dev xvfb
+      - name: Configure native Release build
+        run: |
+          extra=()
+          if [[ "$RUNNER_OS" == macOS ]]; then
+            extra+=('-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64' '-DCMAKE_OSX_DEPLOYMENT_TARGET=11.0')
+          fi
+          cmake -S . -B .build -DCMAKE_BUILD_TYPE=Release -DCH_FFTW_PROVIDER=bundled "${extra[@]}"
+      - name: Build every native format and test runner
+        run: cmake --build .build --config Release --parallel 2
+      - name: Test processor, GUI and real plugin modules
+        run: |
+          if [[ "$RUNNER_OS" == Linux ]]; then
+            xvfb-run -a ctest --test-dir .build -C Release --output-on-failure --output-junit test-results.xml
+          else
+            ctest --test-dir .build -C Release --output-on-failure --output-junit test-results.xml
+          fi
+          python scripts/test-report.py --junit .build/test-results.xml --output .build/test-results.json
+      - name: Check native binaries and architecture slices
+        run: python scripts/check-native-artifacts.py --platform '${{ matrix.cli }}' --artifacts .build/ConvolutionHost_artefacts/Release
+      - name: Validate Audio Unit in auval
+        if: runner.os == 'macOS'
+        run: python scripts/validate-au.py --component '.build/ConvolutionHost_artefacts/Release/AU/CONVOLUTION HOST.component'
+      - name: Collect installable bundles in BUILD
+        run: python scripts/stage-build.py --artifacts .build/ConvolutionHost_artefacts/Release --provenance .build/build-provenance-Release.json --test-results .build/test-results.json --output BUILD
+      - name: Upload platform delivery and test evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: convolution-host-linux
+          name: convolution-host-${{ matrix.platform }}
+          if-no-files-found: error
           path: |
-            build/ConvolutionHost_artefacts/Release/VST3/
-            build/ConvolutionHost_artefacts/Release/Standalone/
-            build/ui-preview.png
+            BUILD/archives/*
+            .build/test-results.xml
+            .build/test-results.json
+            .build/ui-preview.png
+            .build/immersive-preview.png
+  assemble:
+    needs: native
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: convolution-host-*
+          path: downloads
+          merge-multiple: true
+      - name: Assemble three platform directories
+        run: |
+          python3 - <<'PY'
+          import pathlib,tarfile,zipfile
+          for path in pathlib.Path('downloads').rglob('*'):
+              if path.name.endswith('.tar.gz'):
+                  with tarfile.open(path) as archive: archive.extractall('.',filter='data')
+              elif path.suffix=='.zip':
+                  with zipfile.ZipFile(path) as archive: archive.extractall('.')
+          for platform in ['Linux/x86_64','Windows/x86_64','macOS/universal']:
+              assert (pathlib.Path('BUILD')/platform/'manifest.json').is_file(),platform
+          with tarfile.open('convolution-host-all-platforms.tar.gz','w:gz') as archive: archive.add('BUILD',arcname='BUILD')
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: convolution-host-all-platforms
+          if-no-files-found: error
+          path: convolution-host-all-platforms.tar.gz

@@ -1,6 +1,6 @@
 # Formati nativi e cartella BUILD — Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Compilare i formati richiesti sulle piattaforme corrette e raccogliere gli artefatti reali in `BUILD`, distinguendo build, test, validazione e firma.
 
@@ -59,10 +59,10 @@
 - `scripts/check-native-artifacts.py --platform linux|windows|macos --artifacts <dir>` verifica estensioni, bundle e architetture native con strumenti del runner, senza chiamare un ELF `.exe` o un bundle AU.
 - CI nativa: Linux x86_64, Windows x86_64, macOS universal `arm64;x86_64`; Release e test su ogni runner. Il programma macOS universale esegue i test sulla slice del runner; il manifest registra quali architetture sono solo compilate.
 
-- [ ] Scrivere smoke wrapper: CLAP entry/factory e VST3 factory, un'istanza effetto, parametri, callback con silenzio, restore e distruzione ordinata. Errori di percorso o factory devono dare exit code diverso da zero. Eseguire RED prima del runner.
-- [ ] Implementare il runner, leggendo le API dalle dipendenze fissate; i test audio multicanale restano quelli del processor e non vengono sostituiti da una sola istanziazione.
-- [ ] Scrivere controlli artefatti: ELF x86_64 per Linux, PE x64 per Windows, Mach-O con entrambe le slice nei bundle macOS. AAX e AU devono avere il layout nativo JUCE e i rispettivi entry point.
-- [ ] Aggiungere job nativi con azioni fissate a SHA; Linux usa Xvfb, Windows e macOS i toolchain nativi. Non usare certificati né dati segreti. Richieste manuali `workflow_dispatch` oltre a push/PR.
+- [x] Scrivere smoke wrapper: CLAP entry/factory e VST3 factory, un'istanza effetto, parametri, callback con silenzio, restore e distruzione ordinata. Errori di percorso o factory devono dare exit code diverso da zero. Eseguire RED prima del runner.
+- [x] Implementare il runner, leggendo le API dalle dipendenze fissate; i test audio multicanale restano quelli del processor e non vengono sostituiti da una sola istanziazione.
+- [x] Scrivere controlli artefatti: ELF x86_64 per Linux, PE x64 per Windows, Mach-O con entrambe le slice nei bundle macOS. AAX e AU devono avere il layout nativo JUCE e i rispettivi entry point.
+- [x] Aggiungere job nativi con azioni fissate a SHA; Linux usa Xvfb, Windows e macOS i toolchain nativi. Non usare certificati né dati segreti. Richieste manuali `workflow_dispatch` oltre a push/PR.
 - [ ] Su macOS eseguire `auval -v aufx Cvht Lpwr` dopo installazione nella sola directory utente temporanea del runner, ripristinando qualsiasi plugin preesistente; registrare output. AAX: verifica binario compilato; prova in Pro Tools Developer solo se effettivamente disponibile, altrimenti esplicito `not_run`.
 - [ ] Eseguire i job disponibili e raccogliere esiti reali, log e limiti. Commit `ci: build and smoke test native plugin formats on three platforms`.
 
@@ -78,13 +78,13 @@
 - Destinazioni: `BUILD/Linux/x86_64`, `BUILD/Windows/x86_64`, `BUILD/macOS/universal`; elenco formati nel contratto `BUILD/README.md`. `SHA256SUMS` copre ciascun file del bundle con percorso relativo; symlink interni leciti conservati, link esterni rifiutati.
 - Archivi piattaforma sotto `BUILD/archives` con radice `BUILD/<piattaforma>/<architettura>/`; `.tar.gz` Linux/macOS, `.zip` Windows. I binari e gli archivi generati sono ignorati in Git; documentazione tracciata. CI carica gli archivi come download con percorso `BUILD` preservato.
 
-- [ ] Scrivere test Python temporanei: bundle completi, formato mancante, hash, nomi con spazi, directory aggiuntive ignorate, symlink esterni, provenienza mancante/commit errato, esito test fallito, conservazione dell'ultima consegna in caso di errore. Confermare RED prima dell'implementazione.
-- [ ] Implementare staging e manifest; generare anche avvisi/licenze GPL/JUCE/FFTW/CLAP/AAX applicabili, recuperati dalle dipendenze effettive senza aggiungere SDK nel repository.
+- [x] Scrivere test Python temporanei: bundle completi, formato mancante, hash, nomi con spazi, directory aggiuntive ignorate, symlink esterni, provenienza mancante/commit errato, esito test fallito, conservazione dell'ultima consegna in caso di errore. Confermare RED prima dell'implementazione.
+- [x] Implementare staging e manifest; generare anche avvisi/licenze GPL/JUCE/FFTW/CLAP/AAX applicabili, recuperati dalle dipendenze effettive senza aggiungere SDK nel repository.
 - [ ] Testare permessi eseguibili dopo tar/estrazione su Linux e macOS, entrambe le slice dopo packaging su macOS e PE x64 dopo unzip su Windows. Verificare checksum dopo estrazione.
-- [ ] Collegare staging alla CI solo DOPO build e test verdi; un formato richiesto mancante fa fallire il job. Unire gli archivi scaricabili sotto `BUILD` senza dichiarare un formato generato se il suo job non è eseguito.
-- [ ] Dopo il completamento multicanale, eseguire build Release, tutta la suite e staging Linux in questo workspace. Scaricare e verificare gli archivi Windows/macOS dai job se l'accesso remoto lo permette; in caso contrario registrare precisamente l'impedimento senza inventare file.
-- [ ] Dopo aver verificato il setup con `.build/`, aggiornare la bozza cloud install/start affinché usi il nuovo percorso; preservare le altre impostazioni dell'ambiente.
-- [ ] Verificare sezione BUILD e manifest finali, aggiornare limiti solo con evidenza. Commit e push non forzato sul ramo autorizzato; pubblicazione di una release nominata solo se richiesta. Commit `build: collect verified native artifacts in BUILD`.
+- [x] Collegare staging alla CI solo DOPO build e test verdi; un formato richiesto mancante fa fallire il job. Unire gli archivi scaricabili sotto `BUILD` senza dichiarare un formato generato se il suo job non è eseguito.
+- [x] Dopo il completamento multicanale, eseguire build Release, tutta la suite e staging Linux in questo workspace. Scaricare e verificare gli archivi Windows/macOS dai job se l'accesso remoto lo permette; in caso contrario registrare precisamente l'impedimento senza inventare file.
+- [x] Dopo aver verificato il setup con `.build/`, aggiornare la bozza cloud install/start affinché usi il nuovo percorso; preservare le altre impostazioni dell'ambiente.
+- [x] Verificare sezione BUILD e manifest finali, aggiornare limiti solo con evidenza. Commit e push non forzato sul ramo autorizzato; pubblicazione di una release nominata solo se richiesta. Commit `build: collect verified native artifacts in BUILD`.
 
 ## Prerequisiti e stato rilevati
 
@@ -100,4 +100,4 @@ macOS AU da Linux/Windows, e build AAX da firma/validazione. Il piano multicanal
 precedente copre le funzioni audio ancora mancanti. Nessun installer commerciale,
 servizio di aggiornamento o gestione licenze viene aggiunto senza richiesta.
 
-**Stato:** approvato; implementazione in corso. Build Windows/macOS da verificare sui runner nativi.
+**Stato:** implementazione locale completata; revisione finale in corso. Le voci sui job nativi si riferiscono alla pipeline predisposta: esecuzione Windows/macOS, auval e raccolta dei loro output restano NON VERIFICATI per accesso API GitHub `Forbidden`.

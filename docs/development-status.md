@@ -1,57 +1,74 @@
-# Prima versione di sviluppo — 19 ottobre 2026
+# Stato di sviluppo — 20 ottobre 2026
 
-Implementata la prima fase approvata in C++20/JUCE: convoluzione mono/stereo,
-quattro percorsi true stereo, libreria WAV, preset e GUI ridimensionabile.
-I target Linux sono VST3 e Standalone. Per utilizzo e compilazione vedere il
-[README](../README.md).
+Implementate le funzioni audio approvate in C++20/JUCE: convoluzione mono,
+dual mono, stereo e true stereo, matrice fino a 16 canali e 256 percorsi,
+layout 5.1/7.1/7.1.2/7.1.4 e AmbiX ACN/SN3D ordini 1–3. La libreria WAV,
+waveform/decadimento, predelay, EQ, width, trim/fade e preset sono integrati nella
+GUI. Gli oggetti sono elaborati come canali esposti dall'host; metadati e
+rendering Atmos restano nella DAW.
 
-## Verifiche
+## Verifiche locali
 
-- Build Release dei due target su Debian Linux.
-- CTest: 37 casi core e 10 casi processor/GUI, tutti superati sotto Xvfb.
-- Confronto con convoluzione diretta, routing, ricampionamento, EQ, predelay,
-  blocchi variabili, caricamento asincrono, stato e rilocalizzazione degli IR.
-- Controlli delle allocazioni sul thread audio, inclusi blocchi grandi; FFTW3f
-  collegato direttamente su Linux per evitare il backend FFT di ripiego.
-- Avvio della finestra Standalone e anteprima dell'editor generata dai test.
-- Setup cloud senza root eseguito due volte; installazione e istruzioni di avvio
-  salvate nella bozza dell'ambiente, ancora da pubblicare.
+- Build Release Linux VST3, CLAP e Standalone, con CMake e dipendenze fissate.
+- 79 casi in 9 gruppi CTest: 45 core, 19 processor/editor, 12 Python e 3 test dei
+  wrapper, incluso il rifiuto di un percorso inesistente.
+- VST3 e CLAP caricati come moduli reali da un host di test: factory,
+  istanziazione, parametri, salvataggio/ripristino e audio verificati.
+- Confronti con convoluzione diretta e verifica dei canali, LFE escluso per
+  default, AmbiX preservato, cambi layout/generazioni e callback senza allocazioni
+  intercettabili. WIDTH è disabilitato per AmbiX e layout senza coppie stereo.
+- GUI verificata sotto Xvfb, matrice di 256 righe e anteprime stereo/immersiva.
+- Setup cloud verificato sul percorso `.build`; gli script e i dati generati
+  restano separati da `BUILD`, che contiene i plugin installabili.
+- Staging con verifica dei formati/architetture, manifest, checksum, permessi,
+  licenze e archivi con bundle completi. Provenienza non valida o test falliti
+  bloccano la pubblicazione, conservando la consegna precedente.
 
-IR stereo di 30 secondi a 96 kHz: circa 100–125 ms per elaborare 101 blocchi da 256
-campioni nelle misure Release effettuate su questa macchina. Budget stimato per
-due motori: 355 MiB; non rappresenta la memoria totale del processo né una
-garanzia di prestazioni su altre macchine.
+I tempi misurati su questa macchina variano col carico: circa 400–510 ms per
+101 blocchi da 256 campioni a 48 kHz su 16 canali con IR di 2 secondi, e circa
+110–135 ms per 101 blocchi a 96 kHz stereo con IR di 30 secondi. La stima
+conservativa di due motori per l'ultimo caso è 355 MiB. Queste misure non sono
+una garanzia realtime; la stima non comprende la memoria totale del processo.
 
-## Revisione finale
+## Correzioni e compatibilità
 
-Una revisione indipendente ha individuato sette problemi importanti. Ogni caso
-è stato riprodotto con un test fallito prima della correzione:
+La fase stereo aveva già corretto sette problemi importanti: eccezioni dei
+worker, hash degli IR, ripristino senza IR, automazione del predelay, routing
+sparso, coordinate del trim e persistenza delle preferenze. Questa fase risolve
+anche i due problemi GUI rimasti: errore di salvataggio preset troppo breve e
+vecchia preview modificabile durante una nuova selezione fallita/pendente.
 
-1. Eccezioni nei worker: gestione dell'esaurimento di memoria senza terminare
-   l'host, preservando il motore attivo e permettendo un nuovo tentativo.
-2. Identità degli IR: conservazione degli hash durante richieste successive
-   pendenti o fallite, inclusi i quattro WAV separati.
-3. Preset senza IR: cancellazione delle richieste e disattivazione dei vecchi
-   motori senza distruggerli nel callback audio.
-4. Predelay: continuità durante cambi rapidi, completando la transizione dei
-   segnali prima di avviare l'ultimo valore richiesto.
-5. Routing parziale: ripristino per coppia ingresso/uscita e aggiornamento
-   dell'editor quando cambia lo stato.
-6. Trim: coordinate riferite al file originale anche dopo un primo ritaglio.
-7. Preferenze: verifica della scrittura, conservazione delle directory e
-   visibilità degli errori anche dopo una nuova scansione.
+Lo stato passa a versione 2 e legge la versione 1. Un'associazione esplicita
+conserva l'identità del bus; un numero di canali uguale non autorizza una
+reinterpretazione fra discreto, surround e AmbiX. Una matrice esplicita vuota
+rimane wet silenziosa dopo il ripristino.
 
-Restano due problemi minori dell'interfaccia, da affrontare nella prossima fase:
-l'errore di salvataggio di un preset può essere visualizzato troppo brevemente;
-durante un caricamento pendente o fallito la waveform può ancora mostrare l'IR
-precedente. Verificare la creazione del file preset e lo stato di caricamento
-prima di fare affidamento sull'anteprima.
+La build statica ha rivelato allocazioni FFTW che non erano intercettabili
+all'interno della precedente libreria condivisa. Il planner ora esclude i
+solver buffered tramite un adattamento riproducibile, documentato in
+[fftw-realtime.md](fftw-realtime.md); tutti i controlli delle allocazioni restano
+attivi. Le sorgenti upstream verificate non sono modificate.
 
-## Ambito successivo
+## Piattaforme e limiti esterni
 
-Multicanale immersivo e canali di bed/oggetti, AmbiX, CLAP, AU/macOS e AAX
-richiedono ancora implementazione e verifiche dedicate. Non è implementato un
-renderer Atmos. Non sono state eseguite prove in una DAW, con hardware audio,
-su Windows/macOS, né analisi TSan o misure del picco di memoria del processo.
-La workflow GitHub è predisposta; il risultato locale non implica che la CI
-remota sia già passata.
+| Consegna | Stato verificato in questa sessione |
+| --- | --- |
+| Linux VST3/CLAP/Standalone | Compilati e testati; raccolta in `BUILD/Linux/x86_64` |
+| Windows VST3/CLAP/AAX/EXE | Target e runner predisposti; esecuzione nativa non verificata |
+| macOS VST3/CLAP/AU/AAX/APP universal | Target e runner predisposti; esecuzione nativa e auval non verificati |
+
+L'API GitHub per consultare le esecuzioni restituisce `Forbidden`. La workflow
+compila nativamente su Linux/Windows/macOS, valida i moduli e le architetture,
+esegue auval su macOS e produce i pacchetti `BUILD`; il suo esito remoto deve
+essere verificato separatamente. Non sono stati generati in Linux file AU,
+AAX o applicazioni Windows/macOS tramite rinomina di binari.
+
+Gli SDK AAX e VST3 sono inclusi nella dipendenza JUCE fissata. Non sono presenti
+certificati o credenziali di firma. AAX richiede ancora il processo Avid/PACE per
+la distribuzione nella normale versione di Pro Tools. Nessuna prova è stata
+eseguita in una DAW con hardware audio; neppure TSan o misure del picco di
+memoria del processo. Le [licenze effettive](dependency-licenses.md) accompagnano
+le consegne; la GPL dei sorgenti originali è conservata.
+
+La revisione finale congiunta di questa fase è ancora da completare prima della
+pubblicazione conclusiva.

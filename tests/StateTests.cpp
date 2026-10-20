@@ -92,3 +92,15 @@ TEST(state_v2_migrates_v1_and_keeps_empty_matrix_and_layout)
     REQUIRE(out.routing.sourceLayout == "legacy-stereo");
     test::near(out.routing.routes[0].gain, -0.5f);
 }
+TEST(v2_explicit_state_without_layout_is_not_reinterpreted)
+{
+    ch::SavedState state;
+    state.parameters = juce::ValueTree("PARAMETERS");
+    state.routing = {{{0, 1, 0, 1}}};
+    auto encoded = ch::StateStore::encode(state);
+    ch::SavedState decoded;
+    REQUIRE(ch::StateStore::decode(encoded, decoded));
+    REQUIRE(decoded.routing.sourceLayout == "legacy-stereo");
+    encoded.getChildWithName("IR").setProperty("layout", "", nullptr);
+    REQUIRE(!ch::StateStore::decode(encoded, decoded));
+}
