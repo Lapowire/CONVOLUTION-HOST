@@ -1,10 +1,10 @@
 # CONVOLUTION HOST
 
-Riverbero a convoluzione in **C++20 / JUCE 8**, con interfaccia nativa e librerie di impulse response WAV. Questo repository contiene la versione di sviluppo 0.2 con bus fino a 16 canali; il progetto completo è descritto nella [specifica](docs/superpowers/specs/2026-10-19-convolution-host-design.md).
+Riverbero a convoluzione in **C++20 / JUCE 8**, con interfaccia nativa e librerie di impulse response WAV. Questo repository contiene la versione di sviluppo 0.3 con bus fino a 16 canali; il progetto completo è descritto nella [specifica](docs/superpowers/specs/2026-10-19-convolution-host-design.md).
 
 ![Interfaccia di CONVOLUTION HOST](docs/images/plugin-preview.png)
 
-*Anteprima generata dal test della GUI con un IR sintetico.*
+*Anteprima della nuova curva parametrica, generata dai test della GUI.*
 
 La cartella [BUILD](BUILD/README.md) documenta la consegna finale richiesta per Linux, Windows e macOS. La build Linux multicanale è compilata e testata; le consegne Windows/macOS dipendono dai job nativi. Stato e download sono descritti nella cartella BUILD.
 
@@ -14,16 +14,19 @@ La cartella [BUILD](BUILD/README.md) documenta la consegna finale richiesta per 
 - Mono, dual mono, stereo e true stereo con quattro percorsi LL/LR/RL/RR, da WAV multicanale o quattro WAV mono separati.
 - Matrice sparsa fino a 256 percorsi e 16 canali, layout 5.1/7.1/7.1.2/7.1.4 e AmbiX ACN/SN3D ordini 1–3. LFE wet richiede consenso esplicito; WIDTH è disabilitato nei layout senza coppie stereo.
 - Caricamento asincrono, ricampionamento, crossfade di 50 ms e conservazione del motore precedente se il nuovo caricamento fallisce.
-- Predelay, mix, WIDTH stereo, gain input/wet/output, EQ grafico a dieci bande e filtri wet.
+- Predelay, mix, WIDTH stereo, gain input/wet/output, EQ parametrico grafico a dieci bande e filtri wet.
+- Damping spettrale con sei nodi in dB/s, protezione iniziale, confronto A/B e undo delle gesture.
 - Waveform per canale, decadimento energetico, trim, fade e normalizzazione comune dei canali.
 - Directory multiple per librerie e IR utente, ricerca, preferiti, drag-and-drop, preset e stato della sessione versionato.
 - Recupero degli IR spostati tramite radici della libreria e verifica SHA-256 del contenuto, anche per i quattro file true stereo.
+
+L’estensione 0.3 aggiunge [EQ parametrico e damping grafico](docs/tone-shaping.md), confronto A/B e undo locale. Le build precedenti sono documentate separatamente; i nuovi pacchetti richiedono la nuova verifica nativa.
 
 Nessuna libreria IR commerciale è inclusa. I WAV originali non vengono modificati. Senza IR valido l'audio passa a guadagno unitario.
 
 ## Compilazione su Linux
 
-Servono CMake ≥3.22, un compilatore C++20, Python ≥3.9 per verifiche/packaging e le dipendenze di sistema JUCE. Su Debian/Ubuntu:
+Servono CMake ≥3.22, un compilatore C++20, Python ≥3.12 per verifiche/packaging e le dipendenze di sistema JUCE. Su Debian/Ubuntu:
 
 ```sh
 sudo apt-get update

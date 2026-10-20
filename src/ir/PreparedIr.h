@@ -1,8 +1,8 @@
 #pragma once
+#include "SpectralDamping.h"
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_core/juce_core.h>
 #include <memory>
-#include "SpectralDamping.h"
 #include <vector>
 namespace ch
 {

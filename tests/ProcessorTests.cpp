@@ -219,15 +219,65 @@ TEST(legacy_state_restores_new_defaults_on_modified_instance)
 {
     ch::PluginProcessor p(juce::File{});
     REQUIRE(p.parameters.getParameter("peq5Freq"));
-    int oldIndex=p.parameters.getParameter("normalise")->getParameterIndex();
-    REQUIRE(p.parameters.getParameter("peq0Freq")->getParameterIndex()>oldIndex);
-    setParam(p,"peq5Freq",4321);setParam(p,"damp3Rate",20);
-    ch::SavedState legacy;legacy.parameters=juce::ValueTree("PARAMETERS");
-    juce::ValueTree eq("PARAM");eq.setProperty("id","eq5",nullptr);eq.setProperty("value",-6,nullptr);legacy.parameters.addChild(eq,-1,nullptr);
-    auto tree=ch::StateStore::encode(legacy);tree.setProperty("version",2,nullptr);tree.removeChild(tree.getChildWithName("TONE_MEMORIES"),nullptr);
-    juce::MemoryBlock bytes;juce::MemoryOutputStream stream(bytes,false);tree.writeToStream(stream);
-    p.setStateInformation(bytes.getData(),int(bytes.getSize()));
-    test::near(p.parameters.getRawParameterValue("peq5Freq")->load(),1000);
-    test::near(p.parameters.getRawParameterValue("damp3Rate")->load(),0);
-    test::near(p.parameters.getRawParameterValue("eq5")->load(),-6);
+    int oldIndex = p.parameters.getParameter("normalise")->getParameterIndex();
+    REQUIRE(p.parameters.getParameter("peq0Freq")->getParameterIndex() > oldIndex);
+    setParam(p, "peq5Freq", 4321);
+    setParam(p, "damp3Rate", 20);
+    ch::SavedState legacy;
+    legacy.parameters = juce::ValueTree("PARAMETERS");
+    juce::ValueTree eq("PARAM");
+    eq.setProperty("id", "eq5", nullptr);
+    eq.setProperty("value", -6, nullptr);
+    legacy.parameters.addChild(eq, -1, nullptr);
+    auto tree = ch::StateStore::encode(legacy);
+    tree.setProperty("version", 2, nullptr);
+    tree.removeChild(tree.getChildWithName("TONE_MEMORIES"), nullptr);
+    juce::MemoryBlock bytes;
+    juce::MemoryOutputStream stream(bytes, false);
+    tree.writeToStream(stream);
+    p.setStateInformation(bytes.getData(), int(bytes.getSize()));
+    test::near(p.parameters.getRawParameterValue("peq5Freq")->load(), 1000);
+    test::near(p.parameters.getRawParameterValue("damp3Rate")->load(), 0);
+    test::near(p.parameters.getRawParameterValue("eq5")->load(), -6);
+}
+TEST(damping_automation_with_closed_editor_coalesces_and_retains_active_on_error)
+{
+    test::TempDir tmp;
+    ch::PluginProcessor p(juce::File{});
+    p.prepareToPlay(48000, 256);
+    juce::AudioBuffer<float> ir(1, 4800);
+    for (int i = 0; i < 4800; ++i)
+        ir.setSample(0, i, float(std::sin(i * 0.2) * std::exp(-i / 1000.)));
+    p.loadIr(tmp.wav("decay.wav", ir));
+    waitProcessor(p);
+    juce::AudioBuffer<float> audio(2, 256);
+    audio.clear();
+    juce::MidiBuffer midi;
+    p.processBlock(audio, midi);
+    auto original = p.reverb.loader().activeRequest();
+    REQUIRE(original != 0);
+    for (float value : {10.f, 20.f, 30.f})
+        setParam(p, "damp3Rate", value);
+    p.servicePendingChanges();
+    REQUIRE(p.reverb.loader().activeRequest() == original);
+    juce::MessageManager::getInstance()->runDispatchLoopUntil(250);
+    waitProcessor(p);
+    REQUIRE(p.reverb.loader().status().ir->damping.nodes[3].attenuationDbPerSecond == 30);
+    for (int i = 0; i < 12; ++i)
+    {
+        test::RealtimeGuard guard;
+        p.processBlock(audio, midi);
+        REQUIRE(test::realtimeAllocations == 0);
+    }
+    auto active = p.reverb.loader().status();
+    REQUIRE(active.activeId != original);
+    REQUIRE(active.activeDamping.nodes[3].attenuationDbPerSecond == 30);
+    setParam(p, "damp2Freq", 5000);
+    juce::MessageManager::getInstance()->runDispatchLoopUntil(250);
+    auto end = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+    while (p.reverb.loader().status().loading && std::chrono::steady_clock::now() < end)
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    REQUIRE(p.reverb.loader().status().error.isNotEmpty());
+    p.processBlock(audio, midi);
+    REQUIRE(p.reverb.loader().activeRequest() == active.activeId);
 }

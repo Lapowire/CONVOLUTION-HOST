@@ -73,9 +73,9 @@ TEST(editor_all_pages_fit_at_minimum_size_and_disable_nyquist_bands)
     for (auto *child : routing->getChildren())
         REQUIRE(routing->getLocalBounds().contains(child->getBounds()));
     tabs->setCurrentTabIndex(0);
-    auto *high = findControl(*editor, "eq9");
-    REQUIRE(high);
-    REQUIRE(!high->isEnabled());
+    auto *curve = findControl(*editor, "eqCurve");
+    REQUIRE(curve);
+    REQUIRE(curve->getWidth() > 100);
 }
 TEST(sparse_routing_apply_and_open_editor_state_changes_preserve_assignments)
 {

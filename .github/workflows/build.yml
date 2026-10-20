@@ -75,6 +75,7 @@ jobs:
             .build/test-results.json
             .build/ui-preview.png
             .build/immersive-preview.png
+            .build/tone-*.png
   assemble:
     needs: native
     runs-on: ubuntu-22.04

@@ -18,6 +18,8 @@ class IrLoader
         juce::String error;
         std::shared_ptr<const PreparedIr> ir;
         std::uint64_t requestId = 0;
+        DampingSettings activeDamping;
+        std::uint64_t activeId = 0;
     };
     IrLoader();
     ~IrLoader();
@@ -38,6 +40,7 @@ class IrLoader
     {
         std::unique_ptr<ConvolutionEngine> engine;
         std::uint64_t id = 0, generation = 0;
+        DampingSettings damping;
     };
     struct Job
     {
@@ -71,6 +74,8 @@ class IrLoader
     std::atomic<double> duration{0};
     juce::AudioBuffer<float> oldBuffer;
     int fadePosition = 0, fadeLength = 2400;
+    std::atomic<unsigned> dampingSequence{0};
+    std::array<std::atomic<float>, 14> activeDampingValues{};
     std::thread worker;
 };
 } // namespace ch

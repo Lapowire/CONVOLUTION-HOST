@@ -58,3 +58,12 @@ Leggere `docs/superpowers/specs/2026-10-19-convolution-host-design.md` prima di 
 - Lo staging richiede provenienza del commit corrente e test verdi; i binari generati sono ignorati in Git e distribuiti tramite archivi/artifact. Non presentare AAX non firmato come pronto per Pro Tools normale.
 
 - Il wrapper CLAP usa una copia generata adattata: mantenere i controlli CMake e i test delle 25 configurazioni, mappe surround e ACN/SN3D. Non modificare il checkout upstream fissato.
+
+## Estensione EQ/damping 0.3
+
+- Specifica: `docs/superpowers/specs/2026-10-20-parametric-eq-damping-design.md`; piano corrispondente approvato. L'utente richiede di proseguire senza ulteriori domande di autorizzazione.
+- `ParametricEq` elabora il wet prima di HP/LP; non cambiare ID, ordine o range dei gain `eq0`–`eq9`. I nuovi parametri sono aggiunti in coda.
+- `SpectralDamping` prepara l'IR sul worker, dopo trim/fade/normalizzazione comune. Curva in dB/s aggiuntivi, non RT60; neutra/bypass non trasformano i campioni. Nessun allungamento sintetico.
+- `ToneController` appartiene al processor: A/B persistente, undo locale massimo 128 gesture, callback listener con soli atomici. Le revisioni esterne impediscono che undo sovrascriva l'automazione DAW successiva.
+- Stato versione 3 legge versioni 1/2 con default aggiuntivi espliciti. Conservare i test per migrazione sopra istanze già modificate, nodi damping invalidi, editor chiuso e motore precedente in caso di errore.
+- Damping asincrono con debounce 150 ms, non sample-accurate. La GUI distingue richiesta e configurazione accettata dal thread audio attraverso snapshot atomico coerente; non leggere puntatori a motori non posseduti.

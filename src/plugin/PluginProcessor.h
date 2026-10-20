@@ -42,7 +42,7 @@ class PluginProcessor final : public juce::AudioProcessor,
     SavedState selectedState() const;
     std::uint64_t selectionVersion() const noexcept { return selectionRevision.load(); }
     void servicePendingChanges();
-    ToneController& toneController() noexcept {return tone;}
+    ToneController &toneController() noexcept { return tone; }
     juce::AudioProcessorValueTreeState parameters;
     ReverbProcessor reverb;
     IrLibrary library;
@@ -52,7 +52,7 @@ class PluginProcessor final : public juce::AudioProcessor,
     void parameterChanged(const juce::String &, float) override
     {
         irDirty.store(true, std::memory_order_release);
-        lastIrChange.store(juce::Time::getMillisecondCounter(),std::memory_order_release);
+        lastIrChange.store(juce::Time::getMillisecondCounter(), std::memory_order_release);
     }
     void submit();
     ParameterRefs refs;

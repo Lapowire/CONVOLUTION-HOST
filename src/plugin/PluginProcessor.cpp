@@ -12,17 +12,21 @@ PluginProcessor::PluginProcessor(juce::File prefs)
                          .withInput("Input", juce::AudioChannelSet::stereo(), true)
                          .withOutput("Output", juce::AudioChannelSet::stereo(), true)),
       parameters(*this, nullptr, "PARAMETERS", createParameterLayout()), library(std::move(prefs)),
-      refs(parameters),tone(parameters)
+      refs(parameters), tone(parameters)
 {
     for (auto id : irIds)
         parameters.addParameterListener(id, this);
-    for(const auto& d:toneParameterDefinitions(true))if(d.id.startsWith("damp"))parameters.addParameterListener(d.id,this);
+    for (const auto &d : toneParameterDefinitions(true))
+        if (d.id.startsWith("damp"))
+            parameters.addParameterListener(d.id, this);
     startTimerHz(20);
 }
 PluginProcessor::~PluginProcessor()
 {
     stopTimer();
-    for(const auto& d:toneParameterDefinitions(true))if(d.id.startsWith("damp"))parameters.removeParameterListener(d.id,this);
+    for (const auto &d : toneParameterDefinitions(true))
+        if (d.id.startsWith("damp"))
+            parameters.removeParameterListener(d.id, this);
     for (auto id : irIds)
         parameters.removeParameterListener(id, this);
 }
@@ -84,14 +88,14 @@ SavedState PluginProcessor::selectedState() const
     state.request.fadeInMs = refs.values[12]->load();
     state.request.fadeOutMs = refs.values[13]->load();
     state.request.normalise = refs.values[14]->load() >= 0.5f;
-    state.request.damping=refs.readDamping();
+    state.request.damping = refs.readDamping();
     return state;
 }
 void PluginProcessor::getStateInformation(juce::MemoryBlock &dest)
 {
     auto state = selectedState();
     state.parameters = parameters.copyState();
-    state.toneMemories=tone.snapshot();
+    state.toneMemories = tone.snapshot();
     auto tree = StateStore::encode(state);
     tree.setProperty("buildIdentity", CH_BUILD_ID, nullptr);
     juce::MemoryOutputStream stream(dest, false);
@@ -105,15 +109,20 @@ void PluginProcessor::setStateInformation(const void *data, int size)
     if (!StateStore::decode(juce::ValueTree::readFromData(data, std::size_t(size)), state))
         return;
     submittedRequest.store(0);
-    auto normalized=parameters.copyState();
-    for(auto child:normalized)
+    auto normalized = parameters.copyState();
+    for (auto child : normalized)
     {
-        auto id=child["id"].toString();auto* parameter=parameters.getParameter(id);
-        if(!parameter)continue;
-        float value=parameter->convertFrom0to1(parameter->getDefaultValue());
-        for(auto source:state.parameters)if(source["id"].toString()==id)value=float(source["value"]);
-        if(!std::isfinite(value))return;
-        child.setProperty("value",value,nullptr);
+        auto id = child["id"].toString();
+        auto *parameter = parameters.getParameter(id);
+        if (!parameter)
+            continue;
+        float value = parameter->convertFrom0to1(parameter->getDefaultValue());
+        for (auto source : state.parameters)
+            if (source["id"].toString() == id)
+                value = float(source["value"]);
+        if (!std::isfinite(value))
+            return;
+        child.setProperty("value", value, nullptr);
     }
     parameters.replaceState(normalized);
     tone.restore(state.toneMemories);
@@ -238,7 +247,8 @@ void PluginProcessor::setLfeWetEnabled(bool enabled)
 }
 void PluginProcessor::servicePendingChanges()
 {
-    if (prepared.load() && juce::Time::getMillisecondCounter()-lastIrChange.load()>=150 && irDirty.exchange(false))
+    if (prepared.load() && juce::Time::getMillisecondCounter() - lastIrChange.load() >= 150 &&
+        irDirty.exchange(false))
         submit();
 }
 void PluginProcessor::submit()

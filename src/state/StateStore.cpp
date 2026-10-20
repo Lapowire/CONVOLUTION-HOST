@@ -51,30 +51,38 @@ juce::ValueTree StateStore::encode(const SavedState &s)
         ir.addChild(path, -1, nullptr);
     }
     root.addChild(ir, -1, nullptr);
-    auto memories=s.toneMemories;
-    if(auto active=ToneState::fromParameters(s.parameters))memories.slots[std::size_t(memories.active)]=*active;
-    root.addChild(memories.encode(),-1,nullptr);
+    auto memories = s.toneMemories;
+    if (auto active = ToneState::fromParameters(s.parameters))
+        memories.slots[std::size_t(memories.active)] = *active;
+    root.addChild(memories.encode(), -1, nullptr);
     return root;
 }
 bool StateStore::decode(const juce::ValueTree &root, SavedState &out)
 {
-    if (!root.hasType("CONVOLUTION_HOST") || (int(root["version"]) != 1 && int(root["version"]) != 2 && int(root["version"]) != 3))
+    if (!root.hasType("CONVOLUTION_HOST") ||
+        (int(root["version"]) != 1 && int(root["version"]) != 2 && int(root["version"]) != 3))
         return false;
     auto ir = root.getChildWithName("IR"), parameters = root.getChildWithName("PARAMETERS");
     if (!ir.isValid() || !parameters.isValid() || ir.getNumChildren() > 259)
         return false;
     SavedState s;
     s.parameters = parameters.createCopy();
-    auto tone=ToneState::fromParameters(parameters);
-    if(!tone)return false;
-    if(int(root["version"])==3)
+    auto tone = ToneState::fromParameters(parameters);
+    if (!tone)
+        return false;
+    if (int(root["version"]) == 3)
     {
-        auto memories=ToneMemories::decode(root.getChildWithName("TONE_MEMORIES"));
-        if(!memories||memories->slots[std::size_t(memories->active)]!=*tone)return false;
-        s.toneMemories=*memories;
+        auto memories = ToneMemories::decode(root.getChildWithName("TONE_MEMORIES"));
+        if (!memories || memories->slots[std::size_t(memories->active)] != *tone)
+            return false;
+        s.toneMemories = *memories;
     }
-    else {s.toneMemories.slots[0]=*tone;s.toneMemories.slots[1]=*tone;}
-    s.request.damping=tone->damping;
+    else
+    {
+        s.toneMemories.slots[0] = *tone;
+        s.toneMemories.slots[1] = *tone;
+    }
+    s.request.damping = tone->damping;
     if (int(root["version"]) >= 2)
     {
         const int mode = int(root["interpretation"]);

@@ -1,6 +1,6 @@
 #pragma once
-#include "ir/IrLoader.h"
 #include "ParametricEq.h"
+#include "ir/IrLoader.h"
 #include <array>
 #include <span>
 namespace ch
@@ -9,8 +9,8 @@ struct ParameterSnapshot
 {
     float inputGain = 0, outputGain = 0, wetGain = 0, mix = 25, predelay = 0, width = 100;
     std::array<float, 10> eq{};
-    std::array<EqBandShape,10> eqShape=defaultEqShapes();
-    bool eqBypass=false;
+    std::array<EqBandShape, 10> eqShape = defaultEqShapes();
+    bool eqBypass = false;
     float highpass = 20, lowpass = 20000;
     bool filtersEnabled = false, bypass = false;
 };

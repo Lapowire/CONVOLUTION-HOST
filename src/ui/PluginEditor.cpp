@@ -26,7 +26,6 @@ PluginEditor::PluginEditor(PluginProcessor &p)
 {
     setLookAndFeel(&theme);
     setResizable(true, true);
-    setResizeLimits(960, 640, 1800, 1200);
     for (auto *c :
          std::initializer_list<juce::Component *>{&library, &display, &open, &loadPreset, &savePreset,
                                                   &bypass, &decay, &irName, &status, &meter, &tabs})
@@ -70,30 +69,13 @@ PluginEditor::PluginEditor(PluginProcessor &p)
     tabs.setComponentID("tabs");
     tabs.setTabBarDepth(30);
     tabs.setOutline(0);
-    tabs.addTab("GRAPHIC EQ", ui::panel, &eqPage, false);
+    tabs.addTab("POST EQ", ui::panel, &eqPage, false);
     tabs.addTab("IR SHAPE", ui::panel, &shapePage, false);
     tabs.addTab("ROUTING", ui::panel, &routing, false);
-    for (std::size_t i = 0; i < eqControls.size(); ++i)
-    {
-        auto &s = eqControls[i];
-        s.setSliderStyle(juce::Slider::LinearVertical);
-        s.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 55, 20);
-        s.setComponentID("eq" + juce::String(int(i)));
-        s.setTitle("EQ " + juce::String(eqFrequencies[i]) + " Hz");
-        s.setTextValueSuffix(" dB");
-        s.setNumDecimalPlacesToDisplay(1);
-        s.setDoubleClickReturnValue(true, 0);
-        eqPage.addAndMakeVisible(s);
-        sliderAttachments.push_back(
-            std::make_unique<SliderAttachment>(processor.parameters, "eq" + juce::String(int(i)), s));
-        auto &label = eqLabels[i];
-        label.setText(eqFrequencies[i] >= 1000 ? juce::String(eqFrequencies[i] / 1000, 0) + "k"
-                                               : juce::String(eqFrequencies[i], i == 0 ? 1 : 0),
-                      juce::dontSendNotification);
-        label.setFont(ui::font(11));
-        label.setJustificationType(juce::Justification::centred);
-        eqPage.addAndMakeVisible(label);
-    }
+    eqPanel = std::make_unique<TonePanel>(p, CurveMode::postEq);
+    dampingPanel = std::make_unique<TonePanel>(p, CurveMode::damping);
+    eqPage.addAndMakeVisible(*eqPanel);
+    tabs.addTab("DECAY / DAMPING", ui::panel, dampingPanel.get(), false);
     for (std::size_t i = 0; i < shapeControls.size(); ++i)
     {
         rotary(shapeControls[i], shapeIds[i], " ms");
@@ -130,6 +112,7 @@ PluginEditor::PluginEditor(PluginProcessor &p)
     sliderAttachments.push_back(std::make_unique<SliderAttachment>(processor.parameters, "lowpass", lowpass));
     buttonAttachments.push_back(
         std::make_unique<ButtonAttachment>(processor.parameters, "filtersEnabled", filtersEnabled));
+    setResizeLimits(960, 640, 1800, 1200);
     setSize(1180, 760);
     timerCallback();
     startTimerHz(20);
@@ -180,23 +163,18 @@ void PluginEditor::resized()
     bypass.setBounds(getWidth() - 150, buttonY, 82, 30);
     irName.setBounds(x, 17, std::max(120, w - 410), 30);
     meter.setBounds(x, 51, w, 20);
-    int waveHeight = int(getHeight() * 0.27);
+    int waveHeight = int(getHeight() * 0.22);
     display.setBounds(x, 90, w, waveHeight);
     decay.setBounds(x + w - 88, 100, 70, 24);
-    mainArea = {x, 90 + waveHeight + 16, w, 130};
+    mainArea = {x, 90 + waveHeight + 16, w, 105};
     int cell = w / 6;
     for (int i = 0; i < 6; ++i)
-        mainControls[std::size_t(i)].setBounds(x + i * cell + 6, mainArea.getY() + 28, cell - 12, 92);
+        mainControls[std::size_t(i)].setBounds(x + i * cell + 6, mainArea.getY() + 28, cell - 12, 68);
     const int tabY = mainArea.getBottom() + 16;
     tabs.setBounds(x, tabY, w, getHeight() - tabY - 43);
     status.setBounds(x, getHeight() - 34, w, 22);
     const int ew = tabs.getWidth(), eh = tabs.getHeight() - 30;
-    for (int i = 0; i < 10; ++i)
-    {
-        int cw = (ew - 24) / 10;
-        eqLabels[std::size_t(i)].setBounds(12 + i * cw, 6, cw, 18);
-        eqControls[std::size_t(i)].setBounds(12 + i * cw, 28, cw, std::max(50, eh - 68));
-    }
+    eqPanel->setBounds(0, 0, ew, std::max(100, eh - 34));
     filtersEnabled.setBounds(16, eh - 32, 130, 26);
     highpass.setBounds(148, eh - 32, std::max(100, (ew - 170) / 2), 26);
     lowpass.setBounds(148 + (ew - 170) / 2, eh - 32, std::max(100, (ew - 170) / 2), 26);
@@ -243,9 +221,6 @@ void PluginEditor::timerCallback()
                       juce::String(processor.getTotalNumInputChannels()) + " CH / " +
                       (bus ? bus->identity() : juce::String("Unsupported bus")),
                   juce::dontSendNotification);
-    const double sr = processor.getSampleRate() > 0 ? processor.getSampleRate() : 48000;
-    for (std::size_t i = 0; i < 10; ++i)
-        eqControls[i].setEnabled(eqFrequencies[i] < sr * 0.5);
 }
 void PluginEditor::openIr()
 {

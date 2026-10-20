@@ -53,7 +53,7 @@ void ReverbProcessor::prepare(double sr, int maxBlockSize, int channels)
         f = Filter{};
         f.smoothing = 1 - std::exp(-1 / (sr * 0.02));
     }
-    parametricEq.prepare(sr,channels);
+    parametricEq.prepare(sr, channels);
     impulses.configure(sr, blockSize, channels);
     inputPeak.store(0);
     outputPeak.store(0);
@@ -104,11 +104,11 @@ void ReverbProcessor::process(juce::AudioBuffer<float> &buffer, const ParameterS
         else
             smooth[i].setTargetValue(targets[i]);
     }
-    parametricEq.setTargets({p.eq,p.eqShape,p.eqBypass});
+    parametricEq.setTargets({p.eq, p.eqShape, p.eqBypass});
     filters[0].target = p.filtersEnabled ? pass(rate, bounded(p.highpass, 20, 2000, 20), true)
-                                          : std::array<double, 5>{1, 0, 0, 0, 0};
+                                         : std::array<double, 5>{1, 0, 0, 0, 0};
     filters[1].target = p.filtersEnabled ? pass(rate, bounded(p.lowpass, 1000, 20000, 20000), false)
-                                          : std::array<double, 5>{1, 0, 0, 0, 0};
+                                         : std::array<double, 5>{1, 0, 0, 0, 0};
     for (auto &f : filters)
         if (initial)
             f.current = f.target;

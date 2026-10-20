@@ -31,6 +31,17 @@ void vst3(const juce::String &path)
     auto instance = manager.createPluginInstance(*descriptions[0], 48000, 256, error);
     require(bool(instance), error.toRawUTF8());
     require(!instance->getParameters().isEmpty(), "No VST3 parameters");
+    juce::AudioProcessorParameter *frequency = nullptr;
+    bool dampingFound = false;
+    for (auto *parameter : instance->getParameters())
+    {
+        if (parameter->getName(128) == "EQ 6 frequency")
+            frequency = parameter;
+        if (parameter->getName(128) == "Damping 4 dB per second")
+            dampingFound = true;
+    }
+    require(frequency && dampingFound, "VST3 parametric EQ/damping parameters missing");
+    frequency->setValueNotifyingHost(0.42f);
     juce::MemoryBlock state;
     instance->getStateInformation(state);
     require(state.getSize() > 0, "No VST3 state");
@@ -41,7 +52,9 @@ void vst3(const juce::String &path)
     require(component && componentState.fromBase64Encoding(component->getAllSubText()),
             "VST3 component state missing");
     verifyIdentity(componentState.getData(), componentState.getSize());
+    frequency->setValueNotifyingHost(0.1f);
     instance->setStateInformation(state.getData(), int(state.getSize()));
+    require(std::abs(frequency->getValue() - 0.42f) < 0.001f, "VST3 new parameter state restore failed");
     using Set = juce::AudioChannelSet;
     const std::array<Set, 9> layouts{Set::mono(),
                                      Set::stereo(),
@@ -176,10 +189,24 @@ void clap(const juce::String &path)
     require(parameters && parameters->count(p) > 0, "CLAP parameters missing");
     auto *state = static_cast<const clap_plugin_state_t *>(p->get_extension(p, CLAP_EXT_STATE));
     require(state, "CLAP state missing");
+    bool frequencyFound = false, dampingFound = false;
+    for (uint32_t i = 0; i < parameters->count(p); ++i)
+    {
+        clap_param_info_t info{};
+        require(parameters->get_info(p, i, &info), "CLAP parameter info missing");
+        if (std::string(info.name) == "EQ 6 frequency")
+            frequencyFound = true;
+        if (std::string(info.name) == "Damping 4 dB per second")
+            dampingFound = true;
+    }
+    require(frequencyFound && dampingFound, "CLAP parametric EQ/damping parameters missing");
     Memory memory;
     clap_ostream_t outputStream{&memory, writeState};
     require(state->save(p, &outputStream) && !memory.bytes.empty(), "CLAP save failed");
     verifyIdentity(memory.bytes.data(), memory.bytes.size());
+    require(std::string(reinterpret_cast<const char *>(memory.bytes.data()), memory.bytes.size())
+                    .find("peq5Freq") != std::string::npos,
+            "CLAP state lacks new EQ parameters");
     clap_istream_t inputStream{&memory, readState};
     require(state->load(p, &inputStream), "CLAP restore failed");
     require(!configurations->select(p, CLAP_INVALID_ID), "Invalid CLAP bus id accepted");

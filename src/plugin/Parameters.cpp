@@ -38,13 +38,21 @@ juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout()
              {{"filtersEnabled", "Wet filters"}, {"bypass", "Bypass"}, {"normalise", "Normalise IR"}}})
         layout.add(
             std::make_unique<juce::AudioParameterBool>(juce::ParameterID{item.first, 1}, item.second, false));
-    for(const auto& d:toneParameterDefinitions(true))
+    for (const auto &d : toneParameterDefinitions(true))
     {
-        juce::NormalisableRange<float> range{d.minimum,d.maximum,d.interval};
-        if(d.logarithmic)range.setSkewForCentre(std::sqrt(d.minimum*d.maximum));
-        if(d.id.endsWith("Type"))layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID{d.id,1},d.name,juce::StringArray{"Bell","Low shelf","High shelf","Notch"},int(d.defaultValue)));
-        else if(d.maximum==1&&d.minimum==0)layout.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID{d.id,1},d.name,d.defaultValue!=0));
-        else layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{d.id,1},d.name,range,d.defaultValue));
+        juce::NormalisableRange<float> range{d.minimum, d.maximum, d.interval};
+        if (d.logarithmic)
+            range.setSkewForCentre(std::sqrt(d.minimum * d.maximum));
+        if (d.id.endsWith("Type"))
+            layout.add(std::make_unique<juce::AudioParameterChoice>(
+                juce::ParameterID{d.id, 1}, d.name,
+                juce::StringArray{"Bell", "Low shelf", "High shelf", "Notch"}, int(d.defaultValue)));
+        else if (d.maximum == 1 && d.minimum == 0)
+            layout.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID{d.id, 1}, d.name,
+                                                                  d.defaultValue != 0));
+        else
+            layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{d.id, 1}, d.name, range,
+                                                                   d.defaultValue));
     }
     return layout;
 }
@@ -54,13 +62,22 @@ ParameterRefs::ParameterRefs(juce::AudioProcessorValueTreeState &state)
         values[i] = state.getRawParameterValue(ids[i]);
     for (int i = 0; i < 10; ++i)
         bands[std::size_t(i)] = state.getRawParameterValue("eq" + juce::String(i));
-    for(int i=0;i<10;++i)
+    for (int i = 0; i < 10; ++i)
     {
-        auto prefix="peq"+juce::String(i);int j=0;
-        for(auto suffix:{"Freq","Q","Type","Enabled"})shapes[std::size_t(i)][std::size_t(j++)]=state.getRawParameterValue(prefix+suffix);
+        auto prefix = "peq" + juce::String(i);
+        int j = 0;
+        for (auto suffix : {"Freq", "Q", "Type", "Enabled"})
+            shapes[std::size_t(i)][std::size_t(j++)] = state.getRawParameterValue(prefix + suffix);
     }
-    for(int i=0;i<6;++i){auto prefix="damp"+juce::String(i);damping[std::size_t(i)]={state.getRawParameterValue(prefix+"Freq"),state.getRawParameterValue(prefix+"Rate")};}
-    eqBypass=state.getRawParameterValue("eqBypass");dampProtect=state.getRawParameterValue("dampProtect");dampBypass=state.getRawParameterValue("dampBypass");
+    for (int i = 0; i < 6; ++i)
+    {
+        auto prefix = "damp" + juce::String(i);
+        damping[std::size_t(i)] = {state.getRawParameterValue(prefix + "Freq"),
+                                   state.getRawParameterValue(prefix + "Rate")};
+    }
+    eqBypass = state.getRawParameterValue("eqBypass");
+    dampProtect = state.getRawParameterValue("dampProtect");
+    dampBypass = state.getRawParameterValue("dampBypass");
 }
 ParameterSnapshot ParameterRefs::read() const noexcept
 {
@@ -78,15 +95,19 @@ ParameterSnapshot ParameterRefs::read() const noexcept
     p.bypass = v(9) >= 0.5f;
     for (std::size_t i = 0; i < 10; ++i)
         p.eq[i] = bands[i]->load(std::memory_order_relaxed);
-    for(std::size_t i=0;i<10;++i)p.eqShape[i]={shapes[i][0]->load(),shapes[i][1]->load(),EqType(int(shapes[i][2]->load())),shapes[i][3]->load()>=0.5f};
-    p.eqBypass=eqBypass->load()>=0.5f;
+    for (std::size_t i = 0; i < 10; ++i)
+        p.eqShape[i] = {shapes[i][0]->load(), shapes[i][1]->load(), EqType(int(shapes[i][2]->load())),
+                        shapes[i][3]->load() >= 0.5f};
+    p.eqBypass = eqBypass->load() >= 0.5f;
     return p;
 }
 DampingSettings ParameterRefs::readDamping() const noexcept
 {
     DampingSettings s;
-    for(std::size_t i=0;i<6;++i)s.nodes[i]={damping[i][0]->load(),damping[i][1]->load()};
-    s.protectMs=dampProtect->load();s.bypass=dampBypass->load()>=0.5f;
+    for (std::size_t i = 0; i < 6; ++i)
+        s.nodes[i] = {damping[i][0]->load(), damping[i][1]->load()};
+    s.protectMs = dampProtect->load();
+    s.bypass = dampBypass->load() >= 0.5f;
     return s;
 }
 } // namespace ch

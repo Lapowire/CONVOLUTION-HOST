@@ -113,7 +113,28 @@ std::uint64_t IrLoader::clear()
 IrLoader::Status IrLoader::status() const
 {
     std::lock_guard lock(mutex);
-    return current;
+    auto result = current;
+    for (int attempt = 0; attempt < 3; ++attempt)
+    {
+        auto before = dampingSequence.load();
+        if (before % 2)
+            continue;
+        result.activeId = accepted.load();
+        for (std::size_t i = 0; i < 6; ++i)
+            result.activeDamping.nodes[i] = {activeDampingValues[i * 2].load(),
+                                             activeDampingValues[i * 2 + 1].load()};
+        result.activeDamping.protectMs = activeDampingValues[12].load();
+        result.activeDamping.bypass = activeDampingValues[13].load() >= 0.5f;
+        if (before == dampingSequence.load())
+        {
+            if (result.activeId == 0)
+                result.activeDamping = {};
+            return result;
+        }
+    }
+    result.activeId = 0;
+    result.activeDamping = {};
+    return result;
 }
 void IrLoader::run()
 {
@@ -154,7 +175,12 @@ void IrLoader::run()
                     decoded.error = "Saved IR is missing or its content changed; locate the original WAV";
                 else
                 {
-                    decoded = IrDecoder{}.decode(*resolved,[&]{return stopping.load()||job->id!=latest.load()||job->generation!=generation.load();});
+                    decoded = IrDecoder{}.decode(*resolved,
+                                                 [&]
+                                                 {
+                                                     return stopping.load() || job->id != latest.load() ||
+                                                            job->generation != generation.load();
+                                                 });
                     if (decoded && decoded.ir->hash != job->request.expectedHash)
                     {
                         decoded.ir.reset();
@@ -163,7 +189,12 @@ void IrLoader::run()
                 }
             }
             else
-                decoded = IrDecoder{}.decode(job->request,[&]{return stopping.load()||job->id!=latest.load()||job->generation!=generation.load();});
+                decoded = IrDecoder{}.decode(job->request,
+                                             [&]
+                                             {
+                                                 return stopping.load() || job->id != latest.load() ||
+                                                        job->generation != generation.load();
+                                             });
             std::unique_ptr<ConvolutionEngine> engine;
             if (decoded && job->id == latest.load())
             {
@@ -196,7 +227,7 @@ void IrLoader::run()
                 continue;
             if (engine)
             {
-                auto *p = new Packet{std::move(engine), job->id, job->generation};
+                auto *p = new Packet{std::move(engine), job->id, job->generation, job->request.damping};
                 live.fetch_add(1, std::memory_order_release);
                 readyId.store(job->id);
                 destroy(ready.exchange(p, std::memory_order_acq_rel));
@@ -264,7 +295,16 @@ void IrLoader::processWet(juce::AudioBuffer<float> &buffer) noexcept
                 fadePosition = 0;
                 activeFlag.store(true, std::memory_order_release);
                 duration.store(active->engine->durationSeconds());
+                dampingSequence.fetch_add(1);
+                for (std::size_t i = 0; i < 6; ++i)
+                {
+                    activeDampingValues[i * 2].store(p->damping.nodes[i].frequencyHz);
+                    activeDampingValues[i * 2 + 1].store(p->damping.nodes[i].attenuationDbPerSecond);
+                }
+                activeDampingValues[12].store(p->damping.protectMs);
+                activeDampingValues[13].store(p->damping.bypass ? 1 : 0);
                 accepted.store(p->id, std::memory_order_release);
+                dampingSequence.fetch_add(1);
             }
         }
     if (!active)

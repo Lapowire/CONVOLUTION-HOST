@@ -69,7 +69,7 @@ TEST(state_v2_migrates_v1_and_keeps_empty_matrix_and_layout)
     s.routing.lfeWetEnabled = true;
     auto tree = ch::StateStore::encode(s);
     REQUIRE(int(tree["version"]) == 3);
-    tree.setProperty("version",2,nullptr);
+    tree.setProperty("version", 2, nullptr);
     ch::SavedState out;
     REQUIRE(ch::StateStore::decode(tree, out));
     REQUIRE(!out.routing.automatic);

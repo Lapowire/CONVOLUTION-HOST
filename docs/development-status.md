@@ -90,3 +90,15 @@ credenziali di firma nelle consegne. Le [licenze](dependency-licenses.md)
 accompagnano i pacchetti; la GPL originale è conservata. La revisione finale
 congiunta è completata; tutte le correzioni e le decisioni sono raccolte in
 [review-and-build-decisions.md](review-and-build-decisions.md).
+
+## Estensione 0.3: EQ parametrico e damping
+
+Il codice aggiunge dieci bande parametriche bell/shelf/notch, sei nodi di damping
+in dB/s preparati sul worker, protezione iniziale e due curve interattive.
+A/B, copy, reset e undo/redo delle gesture appartengono al processor, conservando
+le memorie nei preset e proteggendo l'automazione DAW successiva dagli undo.
+Lo stato passa a versione 3 e mantiene lettura delle versioni precedenti.
+La [guida ai controlli](tone-shaping.md) descrive unità e applicazione asincrona.
+Le evidenze native 0.2 sopra restano storiche: non certificano automaticamente
+questa estensione; il nuovo ciclo di verifica/consegna è riportato in
+[native-validation.md](native-validation.md).

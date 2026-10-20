@@ -3,6 +3,7 @@
 #include "LibraryPanel.h"
 #include "RoutingPanel.h"
 #include "Theme.h"
+#include "TonePanel.h"
 namespace ch
 {
 class PluginEditor final : public juce::AudioProcessorEditor,
@@ -37,8 +38,7 @@ class PluginEditor final : public juce::AudioProcessorEditor,
     juce::TabbedComponent tabs{juce::TabbedButtonBar::TabsAtTop};
     juce::Component eqPage, shapePage;
     std::array<juce::Slider, 6> mainControls;
-    std::array<juce::Slider, 10> eqControls;
-    std::array<juce::Label, 10> eqLabels;
+    std::unique_ptr<TonePanel> eqPanel, dampingPanel;
     std::array<juce::Slider, 4> shapeControls;
     std::array<juce::Label, 4> shapeLabels;
     juce::Slider highpass, lowpass;
