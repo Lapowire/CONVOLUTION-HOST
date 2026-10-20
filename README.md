@@ -67,12 +67,13 @@ La workflow [Native plugin builds](https://github.com/Lapowire/CONVOLUTION-HOST/
 
 Su Windows usare Visual Studio 2022 con C++ e `cmake -S . -B .build -A x64`, poi `cmake --build .build --config Release --parallel 2`. Su macOS aggiungere `-DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0` alla configurazione Release. Per i test multi-config aggiungere `-C Release` a CTest.
 
-Per raccogliere una build Release pulita e già testata su Linux:
+Gli script di test e consegna richiedono Python 3.12 o successivo. Per raccogliere una build Release pulita e già testata su Linux:
 
 ```sh
 python3 scripts/test-report.py --run --build-dir .build --junit .build/test-results.xml --output .build/test-results.json --artifacts .build/ConvolutionHost_artefacts/Release --provenance .build/build-provenance-Release.json
 python3 scripts/check-native-artifacts.py --platform linux --artifacts .build/ConvolutionHost_artefacts/Release
 python3 scripts/stage-build.py --artifacts .build/ConvolutionHost_artefacts/Release --provenance .build/build-provenance-Release.json --test-results .build/test-results.json --output BUILD
+python3 scripts/verify-delivery.py --archive BUILD/archives/convolution-host-0.2.0-Linux-x86_64.tar.gz
 ```
 
 Su Linux headless eseguire il comando `test-report.py --run` sotto Xvfb. Il comando esegue CTest, controlla l’identità compilata e registra gli hash dei file prima e dopo i test; importare un XML preesistente non autorizza lo staging. Lo staging richiede commit corrispondente, sorgenti puliti, tutti i formati nativi previsti e test verdi. Conserva i bundle da copiare nelle cartelle della DAW, i permessi e le licenze; produce manifest e checksum. Vedere [BUILD](BUILD/README.md) per i percorsi di installazione e gli archivi. La build cloud corrente richiede GLIBC ≥2.38 e GLIBCXX ≥3.4.32; le build della CI hanno la propria baseline.
@@ -93,7 +94,7 @@ Le modifiche di trim/fade/normalizzazione richiedono una preparazione asincrona 
 
 ## Verifica e limiti attuali
 
-La build Release Linux supera 88 casi in 9 gruppi CTest (45 core, 22 processor/GUI, 18 Python e 3 test dei moduli). Risultati, correzioni della revisione e problemi minori ancora aperti sono elencati nello [stato di sviluppo](docs/development-status.md).
+La build Release Linux supera 91 casi in 10 gruppi CTest (45 core, 22 processor/GUI, 21 Python e 3 test dei moduli). Risultati, correzioni della revisione e problemi minori ancora aperti sono elencati nello [stato di sviluppo](docs/development-status.md).
 
 I test confrontano l'audio con una convoluzione diretta, provano routing e isolamento dei canali, sample rate e blocchi variabili, EQ, predelay, file corrotti, caricamenti concorrenti, sostituzioni, stato, rilocalizzazione e GUI ridimensionabile. I controlli di `new/delete` e, su Linux, di `malloc/calloc/realloc/free` intercettabili dal linker sul thread di test integrano l'audit del callback; non equivalgono a un analizzatore completo delle chiamate interne alle librerie dinamiche. Il test dell'editor produce `.build/ui-preview.png` con un IR sintetico.
 

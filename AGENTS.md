@@ -46,6 +46,7 @@ Leggere `docs/superpowers/specs/2026-10-19-convolution-host-design.md` prima di 
 - Dipendenze: CMake ≥3.22, C++20, JUCE 8.0.6 a commit e archivio SHA-256 fissati. Su piattaforme non Apple è richiesto FFTW3f statico bundled con FFTW_NO_BUFFERING forzato dal modulo CMake. Sia il fallback JUCE sia i piani FFTW buffered possono allocare nel callback; non sostituire il backend senza verificare i test delle allocazioni.
 - Configurazione: `cmake -S . -B .build -DCMAKE_BUILD_TYPE=Release`.
 - Compilazione: `cmake --build .build --parallel 2`.
+- Script di test/consegna: Python 3.12 o successivo, incluso il controllo degli archivi estratti con `scripts/verify-delivery.py`.
 - Suite: `xvfb-run -a ctest --test-dir .build --output-on-failure` su Linux senza display; con un display disponibile usare direttamente CTest.
 - Ambiente cloud Debian senza root: eseguire `bash scripts/setup-cloud.sh`, poi `source /workspace/toolchain/activate.sh`. I pacchetti Debian vanno verificati attraverso indici firmati, non estratti da download arbitrari.
 - `ch_tests` verifica il core offline; `ch_plugin_tests` verifica processor, stato e GUI e genera `.build/ui-preview.png`. Il runner stampa il conteggio dei casi effettivamente eseguiti.

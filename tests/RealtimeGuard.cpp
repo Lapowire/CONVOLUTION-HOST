@@ -6,10 +6,9 @@
 #endif
 void *operator new(std::size_t n)
 {
-    auto expected = n;
-    if (n != 0 && test::failWorkerAllocationSize.load() == n &&
-        std::this_thread::get_id() != test::allocationMainThread &&
-        test::failWorkerAllocationSize.compare_exchange_strong(expected, 0))
+    auto expected = test::failWorkerAllocationMinimum.load();
+    if (expected != 0 && n >= expected && std::this_thread::get_id() != test::allocationMainThread &&
+        test::failWorkerAllocationMinimum.compare_exchange_strong(expected, 0))
         throw std::bad_alloc();
     if (test::realtimeChecking)
         ++test::realtimeAllocations;

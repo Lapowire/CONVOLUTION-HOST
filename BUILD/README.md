@@ -38,7 +38,7 @@ sono in `BUILD/archives/`, con radice interna `BUILD/<piattaforma>/<architettura
 il job di assemblaggio produce `convolution-host-all-platforms.tar.gz` solo dopo
 il successo di tutte e tre le build native.
 
-Ogni consegna contiene `manifest.json`, `SHA256SUMS`, `INSTALL.txt` e `LICENSES/`.
+Ogni consegna contiene `manifest.json`, `SHA256SUMS`, `INSTALL.txt` e `LICENSES/`. La CI estrae l’archivio e verifica inventario, checksum, architetture native e permessi degli eseguibili tramite `scripts/verify-delivery.py` (Python 3.12+).
 Il manifest riporta commit, architetture compilate/testate, esito dei test e stato
 della firma. Su Linux sono riportate le versioni minime ABI rilevate: la build
 cloud corrente richiede GLIBC 2.38 e GLIBCXX 3.4.32. FFTW è incluso staticamente;

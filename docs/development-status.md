@@ -10,7 +10,7 @@ rendering Atmos restano nella DAW.
 ## Verifiche locali
 
 - Build Release Linux VST3, CLAP e Standalone, con CMake e dipendenze fissate.
-- 88 casi in 9 gruppi CTest: 45 core, 22 processor/editor, 18 Python e 3 test dei
+- 91 casi in 10 gruppi CTest: 45 core, 22 processor/editor, 21 Python e 3 test dei
   wrapper, incluso il rifiuto di un percorso inesistente.
 - VST3 e CLAP caricati come moduli reali da un host di test: factory,
   istanziazione, parametri, salvataggio/ripristino e audio verificati.
@@ -66,5 +66,7 @@ la distribuzione nella normale versione di Pro Tools. Nessuna prova è stata
 eseguita in una DAW con hardware audio; neppure TSan o misure del picco di
 memoria del processo. Le [licenze effettive](dependency-licenses.md) accompagnano
 le consegne; la GPL dei sorgenti originali è conservata.
+
+La seconda esecuzione [39380863250](https://github.com/Lapowire/CONVOLUTION-HOST/actions/runs/39380863250), sul commit `323f236`, ha confermato 88 casi Linux verdi. Windows ha isolato il fallimento nella simulazione di memoria esaurita: MSVC aggiunge padding alle grandi allocazioni, rendendo fragile una dimensione esatta. Il fault injector ora usa una soglia minima e verifica anche una richiesta con padding. Su macOS i test passano, ma auval non rileva il componente (`-50`); lo script legge i codici dal plist, attende la registrazione e aggiorna il registrar del solo utente del runner GitHub. Entrambe le correzioni richiedono conferma dal successivo job nativo. Gli archivi vengono inoltre estratti e controllati dopo il packaging.
 
 La revisione finale congiunta è completata. Le correzioni sono documentate nelle [decisioni di build e revisione](review-and-build-decisions.md); la validazione nativa Windows/macOS resta aperta.

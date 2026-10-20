@@ -1,4 +1,4 @@
-import hashlib, json, os, pathlib, platform, shutil, stat, subprocess, sys, tarfile, tempfile, unittest
+import hashlib, json, os, pathlib, platform, shutil, stat, subprocess, sys, tarfile, tempfile, unittest, zipfile
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "scripts"))
 from build_artifacts import fingerprints, collect, FORMATS
@@ -96,6 +96,42 @@ class StagingTests(unittest.TestCase):
             )
         archive = next((self.output / "archives").iterdir())
         self.assertGreater(archive.stat().st_size, 1000)
+        checked = subprocess.run(
+            [
+                sys.executable,
+                str(ROOT / "scripts/verify-delivery.py"),
+                "--archive",
+                str(archive),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
+        extracted = self.root / "archive-check"
+        extracted.mkdir()
+        if zipfile.is_zipfile(archive):
+            with zipfile.ZipFile(archive) as source:
+                source.extractall(extracted)
+        else:
+            with tarfile.open(archive) as source:
+                source.extractall(extracted, filter="data")
+        license_file = next(extracted.glob("BUILD/*/*/LICENSES/CONVOLUTION-HOST.txt"))
+        license_file.write_text("damaged during transfer")
+        damaged = self.root / "damaged.tar.gz"
+        with tarfile.open(damaged, "w:gz") as target:
+            target.add(extracted / "BUILD", arcname="BUILD")
+        checked = subprocess.run(
+            [
+                sys.executable,
+                str(ROOT / "scripts/verify-delivery.py"),
+                "--archive",
+                str(damaged),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        self.assertNotEqual(checked.returncode, 0)
+        self.assertIn("Checksum mismatch", checked.stderr)
 
     def test_missing_format_does_not_overwrite_previous_delivery(self):
         self.assertEqual(self.run_stage().returncode, 0)

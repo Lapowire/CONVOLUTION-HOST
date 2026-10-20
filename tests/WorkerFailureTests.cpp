@@ -11,6 +11,27 @@ int runWorkerAllocationProbe()
     allocationMainThread = std::this_thread::get_id();
     try
     {
+        bool injected = false;
+        std::thread allocatorProbe(
+            [&]
+            {
+                failWorkerAllocationMinimum = 4096;
+                auto *small = ::operator new(128);
+                ::operator delete(small);
+                try
+                {
+                    // MSVC's large-vector allocator can pad a 4096-byte request.
+                    auto *padded = ::operator new(4135);
+                    ::operator delete(padded);
+                }
+                catch (const std::bad_alloc &)
+                {
+                    injected = true;
+                }
+            });
+        allocatorProbe.join();
+        REQUIRE(injected);
+        REQUIRE(failWorkerAllocationMinimum.load() == 0);
         TempDir tmp;
         juce::AudioBuffer<float> ir(1, 1024);
         ir.clear();
@@ -33,10 +54,10 @@ int runWorkerAllocationProbe()
             audio.clear();
             audio.setSample(0, 0, 1);
             loader.processWet(audio);
-            failWorkerAllocationSize = 4096;
+            failWorkerAllocationMinimum = 4096;
             loader.request({file});
             wait();
-            REQUIRE(failWorkerAllocationSize.load() == 0);
+            REQUIRE(failWorkerAllocationMinimum.load() == 0);
             REQUIRE(loader.status().error.isNotEmpty());
             audio.clear();
             audio.setSample(0, 0, 1);
@@ -48,7 +69,7 @@ int runWorkerAllocationProbe()
         }
         {
             ch::IrLibrary library;
-            failWorkerAllocationSize = sizeof(ch::IrLibrary::Root);
+            failWorkerAllocationMinimum = sizeof(ch::IrLibrary::Root);
             library.addRoot(tmp.dir, true);
             auto wait = [&]
             {
@@ -58,7 +79,7 @@ int runWorkerAllocationProbe()
                 REQUIRE(!library.snapshot().scanning);
             };
             wait();
-            REQUIRE(failWorkerAllocationSize.load() == 0);
+            REQUIRE(failWorkerAllocationMinimum.load() == 0);
             REQUIRE(library.snapshot().error.isNotEmpty());
             library.scanAsync();
             wait();
@@ -84,7 +105,7 @@ TEST(worker_allocation_failures_preserve_host_and_allow_retry)
     REQUIRE(child.waitForProcessToFinish(15000));
     auto output = child.readAllProcessOutput();
     if (child.getExitCode() != 0)
-        std::cerr << output;
-    REQUIRE(child.getExitCode() == 0);
+        throw std::runtime_error("Worker subprocess failed (" + std::to_string(child.getExitCode()) +
+                                 "): " + output.replaceCharacters("\r\n", "  ").toStdString());
     REQUIRE(output.contains("2/2 workers survived"));
 }

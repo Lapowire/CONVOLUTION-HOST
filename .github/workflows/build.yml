@@ -52,6 +52,8 @@ jobs:
         run: python scripts/validate-au.py --component '.build/ConvolutionHost_artefacts/Release/AU/CONVOLUTION HOST.component'
       - name: Collect installable bundles in BUILD
         run: python scripts/stage-build.py --artifacts .build/ConvolutionHost_artefacts/Release --provenance .build/build-provenance-Release.json --test-results .build/test-results.json --output BUILD
+      - name: Verify extracted platform archive
+        run: python scripts/verify-delivery.py --archive BUILD/archives/*
       - name: Upload failure diagnostics
         if: failure()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

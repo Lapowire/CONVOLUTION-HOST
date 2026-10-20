@@ -4,7 +4,7 @@
 #include <thread>
 namespace test
 {
-inline std::atomic<std::size_t> failWorkerAllocationSize{0};
+inline std::atomic<std::size_t> failWorkerAllocationMinimum{0};
 inline std::thread::id allocationMainThread;
 inline thread_local bool realtimeChecking = false;
 inline thread_local std::size_t realtimeAllocations = 0;
