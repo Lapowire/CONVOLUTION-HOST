@@ -1,4 +1,6 @@
-# EQ parametrico e damping grafico — proposta da approvare
+# EQ parametrico e damping grafico — specifica approvata
+
+Approvata dall'utente con «procedi» dopo la presentazione della specifica.
 
 ## Obiettivo
 
