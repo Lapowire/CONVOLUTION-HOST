@@ -47,5 +47,5 @@ fi
 [[ $(git -C /workspace/deps/JUCE rev-parse HEAD) == "$juce_revision" ]] || { echo 'JUCE checkout revision mismatch' >&2; exit 1; }
 git -C /workspace/deps/JUCE diff --quiet HEAD -- || { echo 'JUCE dependency has local modifications' >&2; exit 1; }
 source "$setup_root/activate.sh"
-cmake -S "$repo_root" -B "$repo_root/build" -G 'Unix Makefiles' -DCMAKE_BUILD_TYPE=Release -DFETCHCONTENT_SOURCE_DIR_JUCE=/workspace/deps/JUCE
-cmake --build "$repo_root/build" --parallel 2
+cmake -S "$repo_root" -B "$repo_root/.build" -G 'Unix Makefiles' -DCMAKE_BUILD_TYPE=Release -DCH_FFTW_PROVIDER=bundled -DFETCHCONTENT_SOURCE_DIR_JUCE=/workspace/deps/JUCE
+cmake --build "$repo_root/.build" --parallel 2

@@ -1,4 +1,10 @@
-/build*/
+/.build/
+/BUILD/Linux/
+/BUILD/Windows/
+/BUILD/macOS/
+/BUILD/archives/
 /.superpowers/
 /.cache/
 .DS_Store
+
+__pycache__/

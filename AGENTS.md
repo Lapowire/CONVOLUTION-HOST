@@ -43,12 +43,12 @@ Leggere `docs/superpowers/specs/2026-10-19-convolution-host-design.md` prima di 
 
 ## Build e test disponibili
 
-- Dipendenze: CMake ≥3.22, C++20, JUCE 8.0.6 a commit e archivio SHA-256 fissati. Su piattaforme non Apple è richiesto FFTW3f collegato direttamente; non usare il fallback JUCE FFT nel callback, perché può allocare scratch e acquisire un lock.
-- Configurazione: `cmake -S . -B build -DCMAKE_BUILD_TYPE=Release`.
-- Compilazione: `cmake --build build --parallel 2`.
-- Suite: `xvfb-run -a ctest --test-dir build --output-on-failure` su Linux senza display; con un display disponibile usare direttamente CTest.
+- Dipendenze: CMake ≥3.22, C++20, JUCE 8.0.6 a commit e archivio SHA-256 fissati. Su piattaforme non Apple è richiesto FFTW3f statico bundled con FFTW_NO_BUFFERING forzato dal modulo CMake. Sia il fallback JUCE sia i piani FFTW buffered possono allocare nel callback; non sostituire il backend senza verificare i test delle allocazioni.
+- Configurazione: `cmake -S . -B .build -DCMAKE_BUILD_TYPE=Release`.
+- Compilazione: `cmake --build .build --parallel 2`.
+- Suite: `xvfb-run -a ctest --test-dir .build --output-on-failure` su Linux senza display; con un display disponibile usare direttamente CTest.
 - Ambiente cloud Debian senza root: eseguire `bash scripts/setup-cloud.sh`, poi `source /workspace/toolchain/activate.sh`. I pacchetti Debian vanno verificati attraverso indici firmati, non estratti da download arbitrari.
-- `ch_tests` verifica il core offline; `ch_plugin_tests` verifica processor, stato e GUI e genera `build/ui-preview.png`. Il runner stampa il conteggio dei casi effettivamente eseguiti.
+- `ch_tests` verifica il core offline; `ch_plugin_tests` verifica processor, stato e GUI e genera `.build/ui-preview.png`. Il runner stampa il conteggio dei casi effettivamente eseguiti.
 - Su Linux i test intercettano anche le allocazioni C raggiungibili dal linker; le chiamate interne alle librerie dinamiche richiedono audit separato.
 - I target verificati attuali sono VST3 e Standalone fino a 16 canali, inclusi true stereo, layout immersivi e AmbiX 1–3. AU, AAX e CLAP sono nella fase di integrazione; dichiarare verificato un wrapper solo dopo la sua build e i suoi test.
 - In questo repository le build Linux e i test sono stati eseguiti. Verificare nuovamente i comandi dopo ogni modifica; non dedurre da queste prove il funzionamento su macOS/Windows o in tutte le DAW.

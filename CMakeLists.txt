@@ -1,21 +1,16 @@
 cmake_minimum_required(VERSION 3.22)
-project(ConvolutionHost VERSION 0.1.0 LANGUAGES C CXX)
+project(ConvolutionHost VERSION 0.2.0 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+include(cmake/PluginFormats.cmake)
+include(cmake/FftBackend.cmake)
 include(cmake/Dependencies.cmake)
 include(CTest)
 add_library(ch_core STATIC src/audio/BusLayout.cpp src/audio/RoutingModel.cpp src/ir/IrDecoder.cpp src/audio/ConvolutionEngine.cpp src/ir/IrLoader.cpp src/audio/ReverbProcessor.cpp src/ir/IrLibrary.cpp src/state/StateStore.cpp src/state/PresetFile.cpp)
 target_include_directories(ch_core PUBLIC src)
 target_link_libraries(ch_core PUBLIC juce::juce_dsp juce::juce_cryptography juce::juce_data_structures)
-# JUCE's fallback FFT may allocate scratch and acquire a spinlock during processing.
-# Link FFTW directly on non-Apple platforms; Apple uses the native vDSP backend.
-if(NOT APPLE)
-  find_package(PkgConfig REQUIRED)
-  pkg_check_modules(FFTW REQUIRED IMPORTED_TARGET fftw3f)
-  target_link_libraries(ch_core PUBLIC PkgConfig::FFTW)
-  target_compile_definitions(ch_core PUBLIC JUCE_DSP_USE_STATIC_FFTW=1)
-endif()
+target_link_libraries(ch_core PUBLIC ch_fft_backend)
 target_compile_definitions(ch_core PUBLIC JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_MODAL_LOOPS_PERMITTED=1)
 if(BUILD_TESTING)
   add_executable(ch_tests tests/TestMain.cpp tests/WorkerFailureTests.cpp tests/RealtimeGuard.cpp tests/BusLayoutTests.cpp tests/RoutingTests.cpp tests/IrDecoderTests.cpp tests/ConvolutionTests.cpp tests/IrLoaderTests.cpp tests/ReverbTests.cpp tests/LibraryTests.cpp tests/StateTests.cpp tests/PresetFileTests.cpp)
@@ -23,20 +18,33 @@ if(BUILD_TESTING)
   add_test(NAME core COMMAND ch_tests)
 endif()
 
-option(CH_BUILD_PLUGIN "Build VST3 and Standalone" ON)
 if(CH_BUILD_PLUGIN)
+  if(CH_BUILD_AAX AND CH_AAX_SDK_PATH)
+    juce_set_aax_sdk_path("${CH_AAX_SDK_PATH}")
+  endif()
   juce_add_plugin(ConvolutionHost
     COMPANY_NAME Lapowire
     BUNDLE_ID com.lapowire.convolutionhost
     PLUGIN_MANUFACTURER_CODE Lpwr
     PLUGIN_CODE Cvht
     PRODUCT_NAME "CONVOLUTION HOST"
-    FORMATS VST3 Standalone
+    FORMATS ${CH_JUCE_FORMATS}
     IS_SYNTH FALSE NEEDS_MIDI_INPUT FALSE NEEDS_MIDI_OUTPUT FALSE
     COPY_PLUGIN_AFTER_BUILD FALSE)
   target_sources(ConvolutionHost PRIVATE src/plugin/PluginProcessor.cpp src/plugin/Parameters.cpp src/ui/PluginEditor.cpp src/ui/IrDisplay.cpp src/ui/LibraryPanel.cpp src/ui/RoutingPanel.cpp src/ui/MatrixEditor.cpp)
   target_link_libraries(ConvolutionHost PRIVATE ch_core juce::juce_audio_utils)
   target_compile_definitions(ConvolutionHost PUBLIC JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_VST3_CAN_REPLACE_VST2=0 JUCE_MODAL_LOOPS_PERMITTED=1)
+  if(CH_BUILD_CLAP)
+    clap_juce_extensions_plugin(TARGET ConvolutionHost CLAP_ID "com.lapowire.convolutionhost" CLAP_FEATURES audio-effect reverb)
+    if(NOT TARGET ConvolutionHost_CLAP)
+      message(FATAL_ERROR "Requested CLAP target was not created")
+    endif()
+  endif()
+  foreach(format IN LISTS CH_JUCE_FORMATS)
+    if(NOT TARGET ConvolutionHost_${format})
+      message(FATAL_ERROR "Requested ${format} target was not created")
+    endif()
+  endforeach()
   if(BUILD_TESTING)
     add_executable(ch_plugin_tests tests/PluginTestMain.cpp tests/RealtimeGuard.cpp tests/ProcessorTests.cpp tests/MultichannelTests.cpp tests/EditorTests.cpp)
     target_include_directories(ch_plugin_tests PRIVATE src "${juce_SOURCE_DIR}/modules")

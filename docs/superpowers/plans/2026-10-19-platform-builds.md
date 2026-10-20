@@ -42,12 +42,12 @@
 - `cmake/PluginFormats.cmake` produce `CH_JUCE_FORMATS`; registra ogni target richiesto. La presenza dei target deve essere verificata dopo la creazione del wrapper CLAP.
 - Su non-Apple, target importato `ch_fft_backend` collega direttamente FFTW3f, con `JUCE_DSP_USE_STATIC_FFTW=1`. Prevedere `CH_FFTW_PROVIDER=system|bundled`, default system su Linux, bundled su Windows; bundled usa FFTW 3.3.10 tag al commit `7184fc796279cfa70e4ba62519ac2938054584e6`, singola precisione statica PIC, thread/OpenMP/test FFTW disattivati. Su Apple usare vDSP.
 
-- [ ] Scrivere configurazioni negative: `CH_BUILD_AU=ON` su non-Apple, `CH_BUILD_AAX=ON` su Linux, SDK override incompleto e provider FFT sconosciuto. Aspettarsi errore nominando prerequisito e formato.
-- [ ] Eseguire i casi negativi contro il CMake corrente e confermare RED: oggi quelle opzioni non sono gestite.
-- [ ] Implementare i moduli sopra. Per CLAP usare `clap_juce_extensions_plugin(TARGET ConvolutionHost CLAP_ID com.lapowire.convolutionhost CLAP_FEATURES audio-effect reverb)` dell'integrazione fissata, verificandone la firma nel sorgente upstream prima dell'uso. Conservare gli identificatori JUCE pubblicati.
-- [ ] Migrare script, workflow, documentazione operativa e comandi correnti a `cmake -S . -B .build`, senza eliminare la vecchia build locale dell'utente. Ignorare `/.build/` e i soli artefatti generati sotto `/BUILD/`; rimuovere il precedente pattern `/build*/` per non rischiare di ignorare la cartella di consegna su filesystem non sensibili alle maiuscole. Verificare che `BUILD/README.md` resti tracciato.
-- [ ] Compilare il backend bundled su Linux come prova del percorso Windows senza dipendere da pkg-config; rieseguire i test grandi blocchi/allocazioni per impedire il fallback FFT. Controllare `ldd`/`otool -L`/`dumpbin /dependents` sui rispettivi runner; nessuna dipendenza da percorsi del workspace.
-- [ ] Configurare e compilare Linux VST3/CLAP/Standalone e CTest. Verificare i target prodotti e i casi negativi verdi. Commit `feat: add native AU AAX and CLAP build targets`.
+- [x] Scrivere configurazioni negative: `CH_BUILD_AU=ON` su non-Apple, `CH_BUILD_AAX=ON` su Linux, SDK override incompleto e provider FFT sconosciuto. Aspettarsi errore nominando prerequisito e formato.
+- [x] Eseguire i casi negativi contro il CMake corrente e confermare RED: oggi quelle opzioni non sono gestite.
+- [x] Implementare i moduli sopra. Per CLAP usare `clap_juce_extensions_plugin(TARGET ConvolutionHost CLAP_ID com.lapowire.convolutionhost CLAP_FEATURES audio-effect reverb)` dell'integrazione fissata, verificandone la firma nel sorgente upstream prima dell'uso. Conservare gli identificatori JUCE pubblicati.
+- [x] Migrare script, workflow, documentazione operativa e comandi correnti a `cmake -S . -B .build`, senza eliminare la vecchia build locale dell'utente. Ignorare `/.build/` e i soli artefatti generati sotto `/BUILD/`; rimuovere il precedente pattern `/build*/` per non rischiare di ignorare la cartella di consegna su filesystem non sensibili alle maiuscole. Verificare che `BUILD/README.md` resti tracciato.
+- [x] Compilare il backend bundled su Linux come prova del percorso Windows senza dipendere da pkg-config; rieseguire i test grandi blocchi/allocazioni per impedire il fallback FFT. Controllare `ldd`/`otool -L`/`dumpbin /dependents` sui rispettivi runner; nessuna dipendenza da percorsi del workspace.
+- [x] Configurare e compilare Linux VST3/CLAP/Standalone e CTest. Verificare i target prodotti e i casi negativi verdi. Commit `feat: add native AU AAX and CLAP build targets`.
 
 ## Task 2: Verifica reale dei wrapper e build native
 
@@ -100,4 +100,4 @@ macOS AU da Linux/Windows, e build AAX da firma/validazione. Il piano multicanal
 precedente copre le funzioni audio ancora mancanti. Nessun installer commerciale,
 servizio di aggiornamento o gestione licenze viene aggiunto senza richiesta.
 
-**Stato:** piano scritto; implementazione in attesa della revisione richiesta da AGENTS.md.
+**Stato:** approvato; implementazione in corso. Build Windows/macOS da verificare sui runner nativi.

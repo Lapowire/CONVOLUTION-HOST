@@ -30,19 +30,19 @@ sudo apt-get update
 sudo apt-get install -y cmake libasound2-dev libx11-dev libxext-dev \
   libxinerama-dev libxrandr-dev libxcursor-dev libfreetype6-dev \
   libfontconfig1-dev libfftw3-dev xvfb
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build --parallel 2
-xvfb-run -a ctest --test-dir build --output-on-failure
+cmake -S . -B .build -DCMAKE_BUILD_TYPE=Release
+cmake --build .build --parallel 2
+xvfb-run -a ctest --test-dir .build --output-on-failure
 ```
 
-Su Linux il motore usa FFTW3f collegato direttamente per evitare il backend FFT di ripiego con scratch allocato durante il callback. Su macOS JUCE usa vDSP.
+Su Linux/Windows il motore usa FFTW3f statico con pianificazione senza buffering dinamico; CMake scarica la versione 3.3.10 a SHA-256 fissato e applica un adattamento documentato al planner. Il provider di sistema viene rifiutato perché non garantisce questo comportamento. Su macOS JUCE usa vDSP.
 
 CMake scarica JUCE a un commit esatto e verifica lo SHA-256 dell'archivio. Per una copia locale verificata usare `-DFETCHCONTENT_SOURCE_DIR_JUCE=/percorso/JUCE`.
 
 Output:
 
-- `build/ConvolutionHost_artefacts/Release/VST3/CONVOLUTION HOST.vst3`
-- `build/ConvolutionHost_artefacts/Release/Standalone/CONVOLUTION HOST`
+- `.build/ConvolutionHost_artefacts/Release/VST3/CONVOLUTION HOST.vst3`
+- `.build/ConvolutionHost_artefacts/Release/Standalone/CONVOLUTION HOST`
 
 Per compilare soltanto il core e i suoi test: `-DCH_BUILD_PLUGIN=OFF`. I test DSP non richiedono scheda audio; i test dell'editor usano un display, anche virtuale.
 
@@ -54,7 +54,7 @@ Nella macchina Debian cloud di questo progetto:
 bash scripts/setup-cloud.sh
 source /workspace/toolchain/activate.sh
 Xvfb :99 -screen 0 1400x900x24 -nolisten tcp > /tmp/convolution-xvfb.log 2>&1 &
-DISPLAY=:99 ctest --test-dir build --output-on-failure
+DISPLAY=:99 ctest --test-dir .build --output-on-failure
 ```
 
 Lo script conserva strumenti, header e librerie in `/workspace/toolchain`, verificando gli indici firmati Debian, e usa il checkout JUCE verificato in `/workspace/deps/JUCE`. Non modifica il sistema. Se il display `:99` esiste già, riutilizzarlo o sceglierne uno libero. Una macchina cloud senza dispositivo audio permette test offline e GUI, non una prova d'ascolto in tempo reale.
@@ -74,7 +74,7 @@ Le modifiche di trim/fade/normalizzazione richiedono una preparazione asincrona 
 
 La build Release Linux della fase multicanale supera 62 casi di test (44 core e 18 processor/GUI). Risultati, correzioni della revisione e problemi minori ancora aperti sono elencati nello [stato di sviluppo](docs/development-status.md).
 
-I test confrontano l'audio con una convoluzione diretta, provano routing e isolamento dei canali, sample rate e blocchi variabili, EQ, predelay, file corrotti, caricamenti concorrenti, sostituzioni, stato, rilocalizzazione e GUI ridimensionabile. I controlli di `new/delete` e, su Linux, di `malloc/calloc/realloc/free` intercettabili dal linker sul thread di test integrano l'audit del callback; non equivalgono a un analizzatore completo delle chiamate interne alle librerie dinamiche. Il test dell'editor produce `build/ui-preview.png` con un IR sintetico.
+I test confrontano l'audio con una convoluzione diretta, provano routing e isolamento dei canali, sample rate e blocchi variabili, EQ, predelay, file corrotti, caricamenti concorrenti, sostituzioni, stato, rilocalizzazione e GUI ridimensionabile. I controlli di `new/delete` e, su Linux, di `malloc/calloc/realloc/free` intercettabili dal linker sul thread di test integrano l'audit del callback; non equivalgono a un analizzatore completo delle chiamate interne alle librerie dinamiche. Il test dell'editor produce `.build/ui-preview.png` con un IR sintetico.
 
 VST3 e Standalone sono i target di questa fase. CLAP, AU e AAX sono in integrazione nella fase successiva. AU richiede macOS; AAX richiede SDK Avid e condizioni di distribuzione appropriate. I canali di bed/oggetti esposti dalla DAW sono elaborati come audio; metadati e rendering Atmos restano nell’host.
 
