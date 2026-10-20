@@ -1,6 +1,6 @@
 # Parametric EQ and Damping Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Rendere EQ e decadimento modificabili tramite curve interattive, con A/B e undo, conservando sessioni, routing e sicurezza realtime.
 
@@ -8,7 +8,7 @@
 
 **Tech Stack:** C++20, JUCE 8.0.6, CMake ≥3.22, Python ≥3.12 per test e consegna; dipendenze fissate esistenti.
 
-**Spec:** `docs/superpowers/specs/2026-10-20-parametric-eq-damping-design.md` — approvata; questo piano attende revisione.
+**Spec:** `docs/superpowers/specs/2026-10-20-parametric-eq-damping-design.md` — approvata; piano approvato dall’utente, con esecuzione continua senza ulteriori richieste di autorizzazione.
 
 ## Global Constraints
 
@@ -53,12 +53,12 @@
 - `static double ParametricEq::magnitude(const EqSettings&, double sampleRate, double frequencyHz) noexcept`; include bypass e bande disattivate, esclude HP/LP esterni.
 - `ParameterSnapshot::eq` resta la sorgente dei dieci gain esistenti; aggiungere `eqShape` e `eqBypass` e costruire `EqSettings` nel processor DSP.
 
-- [ ] Scrivere `parametric_eq_matches_legacy_and_analytic_response`: vecchi default e gain ±12 dB conservano la risposta bell Q 1,4; risposta sinusoidale entro 0,15 dB dalla formula indipendente a 44,1/48/96 kHz; shelf ai due estremi e notch alla frequenza centrale.
-- [ ] Scrivere `parametric_eq_extreme_automation_is_finite_and_allocation_free`: tutti i tipi, Q 0,1/18, frequenze 20/20000, sample rate 8–96 kHz, salti ripetuti, bypass, blocchi 1/37/64/256/1024, 16 canali. Campioni finiti, nessun crossfeed, nessuna allocazione intercettabile, nessun impulso spurio con ingresso silenzioso.
-- [ ] Eseguire build e `.build/ch_tests`; registrare RED dei nuovi test prima dell'implementazione. Comandi assunti preceduti da `source /workspace/toolchain/activate.sh`.
-- [ ] Implementare coefficienti biquad normalizzati e risposta condivisa. Smussare frequenza e Q in dominio logaritmico e gain in dB per 20 ms; ricalcolare coefficienti da parametri validi, evitando interpolazione arbitraria dei poli. Per cambi tipo/bypass usare due banchi preallocati con crossfade 20 ms e coalescenza dell'ultimo target; non azzerare il banco udibile.
-- [ ] Integrare l'EQ wet prima degli HP/LP esistenti, separando questi ultimi dai dieci vecchi filtri; `reset` pulisce entrambi i banchi. Fuori Nyquist usare identità e mantenere il valore salvato.
-- [ ] Eseguire `.build/ch_tests` e `DISPLAY=:99 .build/ch_plugin_tests`; nuovi e vecchi casi verdi. Commit `feat: add stable realtime parametric wet equalizer`.
+- [x] Scrivere `parametric_eq_matches_legacy_and_analytic_response`: vecchi default e gain ±12 dB conservano la risposta bell Q 1,4; risposta sinusoidale entro 0,15 dB dalla formula indipendente a 44,1/48/96 kHz; shelf ai due estremi e notch alla frequenza centrale.
+- [x] Scrivere `parametric_eq_extreme_automation_is_finite_and_allocation_free`: tutti i tipi, Q 0,1/18, frequenze 20/20000, sample rate 8–96 kHz, salti ripetuti, bypass, blocchi 1/37/64/256/1024, 16 canali. Campioni finiti, nessun crossfeed, nessuna allocazione intercettabile, nessun impulso spurio con ingresso silenzioso.
+- [x] Eseguire build e `.build/ch_tests`; registrare RED dei nuovi test prima dell'implementazione. Comandi assunti preceduti da `source /workspace/toolchain/activate.sh`.
+- [x] Implementare coefficienti biquad normalizzati e risposta condivisa. Smussare frequenza e Q in dominio logaritmico e gain in dB per 20 ms; ricalcolare coefficienti da parametri validi, evitando interpolazione arbitraria dei poli. Per cambi tipo/bypass usare due banchi preallocati con crossfade 20 ms e coalescenza dell'ultimo target; non azzerare il banco udibile.
+- [x] Integrare l'EQ wet prima degli HP/LP esistenti, separando questi ultimi dai dieci vecchi filtri; `reset` pulisce entrambi i banchi. Fuori Nyquist usare identità e mantenere il valore salvato.
+- [x] Eseguire `.build/ch_tests` e `DISPLAY=:99 .build/ch_plugin_tests`; nuovi e vecchi casi verdi. Commit `feat: add stable realtime parametric wet equalizer`.
 
 ## Task 2: Damping spettrale dell'impulso
 
@@ -72,13 +72,13 @@
 - `static std::size_t SpectralDamping::scratchBytes(double sampleRate) noexcept`; limite scratch 16 MiB, indipendente dalla durata e dal numero di canali; processo sequenziale per canale. `IrRequest` e `PreparedIr` conservano rispettivamente damping richiesto e applicato.
 - `DecodeResult IrDecoder::decode(const IrRequest&, const std::function<bool()>& cancelled = {}) const` conserva le chiamate precedenti e propaga la cancellazione ai child true stereo e al damping. Il loader fornisce il predicate del job.
 
-- [ ] Scrivere `neutral_damping_preserves_every_sample`: bypass o tutti zero restituiscono campioni bit-identici, nessuna trasformazione FFT; controllo delle frequenze 20–20000 e nodi strettamente crescenti, Q assente.
-- [ ] Scrivere `damping_changes_decay_by_frequency`: due bande sintetiche separate, 0 e 12 dB/s, misure in finestre dopo 0,25/0,75 s; differenza coerente con la pendenza entro 1,5 dB; usare segnali e finestre lontani dai bordi STFT.
-- [ ] Scrivere `damping_reconstructs_edges_and_preserves_channel_relations`: impulsi a inizio/fine, IR più corto della finestra, protezione 0/200 ms, 44,1/48/96 kHz, 16 canali proporzionali. Nessuna variazione di lunghezza/ordine; errore dei rapporti <2e-4; nessun campione non finito. Damping piatto confrontato anche con inviluppo temporale nominale, entro tolleranza ai bordi dichiarata.
-- [ ] Scrivere `damping_rejects_invalid_or_cancelled_jobs`: NaN/Inf, rate illegale, nodi uguali/invertiti, budget scratch superato e cancellazione a metà. Eseguire RED.
-- [ ] Implementare STFT complessa con finestra sqrt-Hann, hop N/4 e normalizzazione overlap-add; FFT power-of-two più vicina a 2048*sampleRate/48000, limitata 512–8192. Padding centrato e compensazione dei bordi; fase preservata. Riutilizzare scratch per ogni canale e controllare cancellazione a ogni frame.
-- [ ] Integrare dopo la normalizzazione e prima delle analisi waveform/Schroeder. Usare tempo dal trim, nessun gain comune successivo. Nel percorso quattro file mono applicare solo dopo assemblaggio, evitando damping ripetuto dei child.
-- [ ] Eseguire core, regressioni decoder e misura scratch; commit `feat: shape impulse decay with offline spectral damping`.
+- [x] Scrivere `neutral_damping_preserves_every_sample`: bypass o tutti zero restituiscono campioni bit-identici, nessuna trasformazione FFT; controllo delle frequenze 20–20000 e nodi strettamente crescenti, Q assente.
+- [x] Scrivere `damping_changes_decay_by_frequency`: due bande sintetiche separate, 0 e 12 dB/s, misure in finestre dopo 0,25/0,75 s; differenza coerente con la pendenza entro 1,5 dB; usare segnali e finestre lontani dai bordi STFT.
+- [x] Scrivere `damping_reconstructs_edges_and_preserves_channel_relations`: impulsi a inizio/fine, IR più corto della finestra, protezione 0/200 ms, 44,1/48/96 kHz, 16 canali proporzionali. Nessuna variazione di lunghezza/ordine; errore dei rapporti <2e-4; nessun campione non finito. Damping piatto confrontato anche con inviluppo temporale nominale, entro tolleranza ai bordi dichiarata.
+- [x] Scrivere `damping_rejects_invalid_or_cancelled_jobs`: NaN/Inf, rate illegale, nodi uguali/invertiti, budget scratch superato e cancellazione a metà. Eseguire RED.
+- [x] Implementare STFT complessa con finestra sqrt-Hann, hop N/4 e normalizzazione overlap-add; FFT power-of-two più vicina a 2048*sampleRate/48000, limitata 512–8192. Padding centrato e compensazione dei bordi; fase preservata. Riutilizzare scratch per ogni canale e controllare cancellazione a ogni frame.
+- [x] Integrare dopo la normalizzazione e prima delle analisi waveform/Schroeder. Usare tempo dal trim, nessun gain comune successivo. Nel percorso quattro file mono applicare solo dopo assemblaggio, evitando damping ripetuto dei child.
+- [x] Eseguire core, regressioni decoder e misura scratch; commit `feat: shape impulse decay with offline spectral damping`.
 
 ## Task 3: Parametri, worker e migrazione dello stato
 
@@ -91,12 +91,12 @@
 - Stato versione 3: `SavedState` aggiunge `ToneMemories`; lettura versioni 1/2 con default aggiuntivi espliciti. Parametri assenti ripristinati al default prima di `replaceState`; rifiutare enum fuori range, duplicati e valori non finiti.
 - `IrLoader::Status` espone damping richiesto/preparato con identificatori; distinguere `activeRequest()` dalla preparazione pronta. Passare predicate di cancellazione dal job fino alla trasformazione.
 
-- [ ] Scrivere `legacy_state_restores_new_defaults_on_modified_instance`: fixture versioni 1/2 sopra EQ/damping già modificati, indici dei vecchi parametri identici, risposta bell originale e damping neutro.
-- [ ] Scrivere `tone_state_v3_roundtrip_and_invalid_restore_are_atomic`: due slot A/B distinti, stato attivo coerente coi parametri, versioni future/enum/nodi/NaN rifiutati senza cambiare stato corrente; dimensione limite preset esistente rispettata.
-- [ ] Scrivere `damping_automation_with_closed_editor_coalesces_latest`: modifiche continue, IR mancante, restore durante preparazione, cambio bus/sample rate, bypass e zero curve; motori obsoleti mai attivati, precedente motore valido conservato, callback senza allocazioni.
-- [ ] Eseguire RED, poi integrare parametri aggiunti in coda, default/migrazione e worker. Debounce trailing 150 ms usando il timer processor esistente; `parameterChanged` imposta soltanto atomici. `servicePendingChanges()` applica l'ultima configurazione e funziona con editor chiuso.
-- [ ] Estendere cancellazione ai job superati e controllo separato scratch/motori, senza spostare distruzioni sul callback. Salvare stato richiesto anche quando preparazione fallisce.
-- [ ] Eseguire i due runner sotto Xvfb e verificare fixture, routing e restore pre/post prepare; commit `feat: automate and persist parametric tone shaping compatibly`.
+- [x] Scrivere `legacy_state_restores_new_defaults_on_modified_instance`: fixture versioni 1/2 sopra EQ/damping già modificati, indici dei vecchi parametri identici, risposta bell originale e damping neutro.
+- [x] Scrivere `tone_state_v3_roundtrip_and_invalid_restore_are_atomic`: due slot A/B distinti, stato attivo coerente coi parametri, versioni future/enum/nodi/NaN rifiutati senza cambiare stato corrente; dimensione limite preset esistente rispettata.
+- [x] Scrivere `damping_automation_with_closed_editor_coalesces_latest`: modifiche continue, IR mancante, restore durante preparazione, cambio bus/sample rate, bypass e zero curve; motori obsoleti mai attivati, precedente motore valido conservato, callback senza allocazioni.
+- [x] Eseguire RED, poi integrare parametri aggiunti in coda, default/migrazione e worker. Debounce trailing 150 ms usando il timer processor esistente; `parameterChanged` imposta soltanto atomici. `servicePendingChanges()` applica l'ultima configurazione e funziona con editor chiuso.
+- [x] Estendere cancellazione ai job superati e controllo separato scratch/motori, senza spostare distruzioni sul callback. Salvare stato richiesto anche quando preparazione fallisce.
+- [x] Eseguire i due runner sotto Xvfb e verificare fixture, routing e restore pre/post prepare; commit `feat: automate and persist parametric tone shaping compatibly`.
 
 ## Task 4: Gesture, A/B e undo locali
 
@@ -107,11 +107,11 @@
 - `beginGesture()`, `setParameter(const juce::String& id, float plainValue)`, `endGesture()`, `undo()`, `redo()`, `selectSlot(int)`, `copySlot(int from, int to)`, `resetEq()`, `resetDamping()`.
 - `ToneMemories snapshot() const`, `restore(const ToneMemories&)`, `bool canUndo() const`, `bool canRedo() const`; accesso GUI tramite `PluginProcessor::toneController()`.
 
-- [ ] Scrivere `tone_drag_is_one_undo_and_host_gestures_are_balanced`: cento spostamenti producono un solo passo; callback host ricevono begin/end per ogni parametro toccato e valori coerenti; gesto senza cambiamenti non aggiunge storia.
-- [ ] Scrivere `tone_ab_copy_restore_and_undo_preserve_unrelated_parameters`: EQ/damping scambiati e persistenti, routing/mix/IR invariati; modifiche nel preset attivo aggiornano solo quello slot; 129 gesture rispettano limite 128.
-- [ ] Scrivere `external_automation_during_gesture_is_not_overwritten`: automazione non aggiunge undo; undo locale modifica solo i parametri toccati localmente e non sovrascrive modifiche esterne successive; redo invalidato dopo interventi esterni sui medesimi parametri. Restore chiude gesture e azzera la storia.
-- [ ] Eseguire RED; implementare delta per parametro e revisioni di conflitto, anziché ripristinare snapshot globali indiscriminati. A/B è una singola azione locale con notifiche host e debounce damping condiviso.
-- [ ] Eseguire test processor/editor; commit `feat: add host-aware tone comparison and gesture undo`.
+- [x] Scrivere `tone_drag_is_one_undo_and_host_gestures_are_balanced`: cento spostamenti producono un solo passo; callback host ricevono begin/end per ogni parametro toccato e valori coerenti; gesto senza cambiamenti non aggiunge storia.
+- [x] Scrivere `tone_ab_copy_restore_and_undo_preserve_unrelated_parameters`: EQ/damping scambiati e persistenti, routing/mix/IR invariati; modifiche nel preset attivo aggiornano solo quello slot; 129 gesture rispettano limite 128.
+- [x] Scrivere `external_automation_during_gesture_is_not_overwritten`: automazione non aggiunge undo; undo locale modifica solo i parametri toccati localmente e non sovrascrive modifiche esterne successive; redo invalidato dopo interventi esterni sui medesimi parametri. Restore chiude gesture e azzera la storia.
+- [x] Eseguire RED; implementare delta per parametro e revisioni di conflitto, anziché ripristinare snapshot globali indiscriminati. A/B è una singola azione locale con notifiche host e debounce damping condiviso.
+- [x] Eseguire test processor/editor; commit `feat: add host-aware tone comparison and gesture undo`.
 
 ## Task 5: Curve interattive e pannelli grafici
 
@@ -122,12 +122,12 @@
 - `CurveEditor(ToneController&, CurveMode)`, `setDisplayState(const ToneState& requested, const ToneState& applied, double sampleRate, bool pending)`, `int selectedNode() const`.
 - `TonePanel(PluginProcessor&, CurveMode)` possiede curva, controlli della banda selezionata e toolbar; timer legge soltanto snapshot e stato loader, nessun submit o scrittura automatica dei parametri.
 
-- [ ] Scrivere `curve_drag_numeric_and_keyboard_edit_same_parameters`: coordinate logaritmiche, drag gain/frequenza, rotella Q, tastiera, doppio click reset, shelf/notch; damping non attraversa i vicini. Una gesture resta un passo undo anche modificando due parametri.
-- [ ] Scrivere `curve_response_matches_dsp_and_nyquist_is_explicit`: risposta totale di bande + HP/LP, band individuale, EQ bypass; sample rate 8 kHz disabilita i nodi fuori banda senza cambiare valori salvati, aggiornamento automazione senza feedback.
-- [ ] Scrivere `pending_or_failed_damping_keeps_active_curve_visible`: richiesta e applicato distinti durante preparazione, swap/crossfade ed errore; editor chiuso/riaperto mostra configurazione attuale, non snapshot precedente.
-- [ ] Scrivere regressioni accessibilità e layout a 960x640 e 1180x760: nomi/focus dei controlli, campi numerici visibili, curve non sovrapposte alla toolbar; adattare test della vecchia pagina EQ conservando shape e routing.
-- [ ] Eseguire RED; sostituire la pagina GRAPHIC EQ con POST EQ e aggiungere DECAY/DAMPING, usando componenti originali e griglia leggibile. Conservare HP/LP, waveform, libreria e controlli principali; niente codice DSP nel paint.
-- [ ] Eseguire `DISPLAY=:99 .build/ch_plugin_tests`, renderizzare e ispezionare entrambe le schede a dimensione minima e normale; commit `feat: edit wet EQ and decay through interactive curves`.
+- [x] Scrivere `curve_drag_numeric_and_keyboard_edit_same_parameters`: coordinate logaritmiche, drag gain/frequenza, rotella Q, tastiera, doppio click reset, shelf/notch; damping non attraversa i vicini. Una gesture resta un passo undo anche modificando due parametri.
+- [x] Scrivere `curve_response_matches_dsp_and_nyquist_is_explicit`: risposta totale di bande + HP/LP, band individuale, EQ bypass; sample rate 8 kHz disabilita i nodi fuori banda senza cambiare valori salvati, aggiornamento automazione senza feedback.
+- [x] Scrivere `pending_or_failed_damping_keeps_active_curve_visible`: richiesta e applicato distinti durante preparazione, swap/crossfade ed errore; editor chiuso/riaperto mostra configurazione attuale, non snapshot precedente.
+- [x] Scrivere regressioni accessibilità e layout a 960x640 e 1180x760: nomi/focus dei controlli, campi numerici visibili, curve non sovrapposte alla toolbar; adattare test della vecchia pagina EQ conservando shape e routing.
+- [x] Eseguire RED; sostituire la pagina GRAPHIC EQ con POST EQ e aggiungere DECAY/DAMPING, usando componenti originali e griglia leggibile. Conservare HP/LP, waveform, libreria e controlli principali; niente codice DSP nel paint.
+- [x] Eseguire `DISPLAY=:99 .build/ch_plugin_tests`, renderizzare e ispezionare entrambe le schede a dimensione minima e normale; commit `feat: edit wet EQ and decay through interactive curves`.
 
 ## Task 6: Verifica finale e consegne native aggiornate
 

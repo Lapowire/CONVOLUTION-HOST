@@ -67,16 +67,68 @@ TEST(tone_numeric_frequency_is_limited_to_nyquist_and_panels_render)
 }
 TEST(curve_drag_is_one_gesture_and_damping_nodes_do_not_cross)
 {
-    ch::PluginProcessor p(juce::File{});auto& tone=p.toneController();
-    ch::CurveEditor eq(tone,ch::CurveMode::postEq);eq.setSize(600,180);eq.selectNode(5);auto state=tone.current();eq.setDisplayState(state,state,48000,false);
-    auto event=[&](juce::Component& c,juce::Point<float> point,bool dragged){return juce::MouseEvent(juce::Desktop::getInstance().getMainMouseSource(),point,juce::ModifierKeys(juce::ModifierKeys::leftButtonModifier),1,0,0,0,0,&c,&c,juce::Time::getCurrentTime(),point,juce::Time::getCurrentTime(),1,dragged);};
-    float x=42+float(std::log(1000./20)/std::log(1000.))*516;
-    eq.mouseDown(event(eq,{x,81.5f},false));
-    for(int i=0;i<50;++i)eq.mouseDrag(event(eq,{x+20+i*0.1f,60},true));
-    eq.mouseUp(event(eq,{x+25,60},true));
-    REQUIRE(tone.current().eq.gainDb[5]>4);REQUIRE(tone.current().eq.bands[5].frequencyHz>1000);
-    tone.undo();test::near(tone.current().eq.gainDb[5],0);test::near(tone.current().eq.bands[5].frequencyHz,1000);REQUIRE(!tone.canUndo());
-    ch::CurveEditor damping(tone,ch::CurveMode::damping);damping.setSize(600,180);damping.selectNode(2);state=tone.current();damping.setDisplayState(state,state,48000,false);
-    damping.mouseDown(event(damping,{x,153},false));damping.mouseDrag(event(damping,{550,80},true));damping.mouseUp(event(damping,{550,80},true));
-    REQUIRE(tone.current().damping.isValid());REQUIRE(tone.current().damping.nodes[2].frequencyHz<4000);REQUIRE(tone.current().damping.nodes[2].attenuationDbPerSecond>0);
+    ch::PluginProcessor p(juce::File{});
+    auto &tone = p.toneController();
+    ch::CurveEditor eq(tone, ch::CurveMode::postEq);
+    eq.setSize(600, 180);
+    eq.selectNode(5);
+    auto state = tone.current();
+    eq.setDisplayState(state, state, 48000, false);
+    auto event = [&](juce::Component &c, juce::Point<float> point, bool dragged)
+    {
+        return juce::MouseEvent(juce::Desktop::getInstance().getMainMouseSource(), point,
+                                juce::ModifierKeys(juce::ModifierKeys::leftButtonModifier), 1, 0, 0, 0, 0, &c,
+                                &c, juce::Time::getCurrentTime(), point, juce::Time::getCurrentTime(), 1,
+                                dragged);
+    };
+    float x = 42 + float(std::log(1000. / 20) / std::log(1000.)) * 516;
+    eq.mouseDown(event(eq, {x, 81.5f}, false));
+    for (int i = 0; i < 50; ++i)
+        eq.mouseDrag(event(eq, {x + 20 + i * 0.1f, 60}, true));
+    eq.mouseUp(event(eq, {x + 25, 60}, true));
+    REQUIRE(tone.current().eq.gainDb[5] > 4);
+    REQUIRE(tone.current().eq.bands[5].frequencyHz > 1000);
+    tone.undo();
+    test::near(tone.current().eq.gainDb[5], 0);
+    test::near(tone.current().eq.bands[5].frequencyHz, 1000);
+    REQUIRE(!tone.canUndo());
+    ch::CurveEditor damping(tone, ch::CurveMode::damping);
+    damping.setSize(600, 180);
+    damping.selectNode(2);
+    state = tone.current();
+    damping.setDisplayState(state, state, 48000, false);
+    damping.mouseDown(event(damping, {x, 153}, false));
+    damping.mouseDrag(event(damping, {550, 80}, true));
+    damping.mouseUp(event(damping, {550, 80}, true));
+    REQUIRE(tone.current().damping.isValid());
+    REQUIRE(tone.current().damping.nodes[2].frequencyHz < 4000);
+    REQUIRE(tone.current().damping.nodes[2].attenuationDbPerSecond > 0);
+}
+TEST(curve_single_axis_keys_preserve_fresh_external_automation)
+{
+    ch::PluginProcessor p(juce::File{});
+    auto &controller = p.toneController();
+    auto external = [&](const char *id, float value)
+    {
+        auto *parameter = p.parameters.getParameter(id);
+        parameter->setValueNotifyingHost(parameter->convertTo0to1(value));
+    };
+    ch::CurveEditor eq(controller, ch::CurveMode::postEq);
+    eq.setSize(600, 180);
+    eq.selectNode(5);
+    external("eq5", 9);
+    eq.keyPressed(juce::KeyPress(juce::KeyPress::rightKey));
+    test::near(controller.current().eq.gainDb[5], 9);
+    external("peq5Freq", 2300);
+    eq.keyPressed(juce::KeyPress(juce::KeyPress::upKey));
+    test::near(controller.current().eq.bands[5].frequencyHz, 2300, 0.1f);
+    ch::CurveEditor damping(controller, ch::CurveMode::damping);
+    damping.setSize(600, 180);
+    damping.selectNode(2);
+    external("damp2Rate", 25);
+    damping.keyPressed(juce::KeyPress(juce::KeyPress::rightKey));
+    test::near(controller.current().damping.nodes[2].attenuationDbPerSecond, 25);
+    external("damp2Freq", 1700);
+    damping.keyPressed(juce::KeyPress(juce::KeyPress::upKey));
+    test::near(controller.current().damping.nodes[2].frequencyHz, 1700, 0.1f);
 }

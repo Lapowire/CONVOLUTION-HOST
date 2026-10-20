@@ -91,15 +91,26 @@ TEST(damping_is_frequency_selective)
 #include <chrono>
 TEST(damping_long_ir_resource_measurement)
 {
-    for(auto configuration:{std::array<int,3>{96000,30,2},{48000,2,16}})
+    for (auto configuration : {std::array<int, 3>{96000, 30, 2}, {48000, 2, 16}})
     {
-        int sr=configuration[0],seconds=configuration[1],channels=configuration[2];
-        juce::AudioBuffer<float> buffer(channels,sr*seconds);buffer.clear();
-        for(int c=0;c<channels;++c){buffer.setSample(c,0,0.5f);buffer.setSample(c,sr*seconds-1,0.1f);}
-        ch::DampingSettings settings;settings.nodes[5].attenuationDbPerSecond=24;
-        auto start=std::chrono::steady_clock::now();REQUIRE(ch::SpectralDamping::apply(buffer,sr,settings,{}).wasOk());
-        double ms=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-start).count();
-        std::cout<<"MEASURE damping "<<channels<<"ch/"<<seconds<<"s/"<<sr<<"Hz: "<<ms<<" ms preparation; "<<ch::SpectralDamping::scratchBytes(sr)<<" bytes conservative scratch\n";
-        REQUIRE(buffer.getNumSamples()==sr*seconds);REQUIRE(std::isfinite(buffer.getSample(0,0)));
+        int sr = configuration[0], seconds = configuration[1], channels = configuration[2];
+        juce::AudioBuffer<float> buffer(channels, sr * seconds);
+        buffer.clear();
+        for (int c = 0; c < channels; ++c)
+        {
+            buffer.setSample(c, 0, 0.5f);
+            buffer.setSample(c, sr * seconds - 1, 0.1f);
+        }
+        ch::DampingSettings settings;
+        settings.nodes[5].attenuationDbPerSecond = 24;
+        auto start = std::chrono::steady_clock::now();
+        REQUIRE(ch::SpectralDamping::apply(buffer, sr, settings, {}).wasOk());
+        double ms =
+            std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
+        std::cout << "MEASURE damping " << channels << "ch/" << seconds << "s/" << sr << "Hz: " << ms
+                  << " ms preparation; " << ch::SpectralDamping::scratchBytes(sr)
+                  << " bytes conservative scratch\n";
+        REQUIRE(buffer.getNumSamples() == sr * seconds);
+        REQUIRE(std::isfinite(buffer.getSample(0, 0)));
     }
 }

@@ -102,3 +102,6 @@ La [guida ai controlli](tone-shaping.md) descrive unità e applicazione asincron
 Le evidenze native 0.2 sopra restano storiche: non certificano automaticamente
 questa estensione; il nuovo ciclo di verifica/consegna è riportato in
 [native-validation.md](native-validation.md).
+
+La [verifica 0.3](tone-validation.md) documenta 114 casi locali, revisione
+indipendente, correzioni e un rilievo minore sulla preview a callback sospesi.

@@ -281,3 +281,44 @@ TEST(damping_automation_with_closed_editor_coalesces_and_retains_active_on_error
     p.processBlock(audio, midi);
     REQUIRE(p.reverb.loader().activeRequest() == active.activeId);
 }
+TEST(parametric_frequency_and_type_reach_the_wet_audio_path)
+{
+    test::TempDir tmp;
+    ch::PluginProcessor p(juce::File{});
+    p.prepareToPlay(48000, 256);
+    juce::AudioBuffer<float> impulse(1, 1);
+    impulse.setSample(0, 0, 1);
+    p.loadIr(tmp.wav("unity.wav", impulse));
+    waitProcessor(p);
+    setParam(p, "mix", 100);
+    setParam(p, "peq5Freq", 2000);
+    setParam(p, "peq5Type", 3);
+    setParam(p, "peq5Q", 0.7f);
+    juce::AudioBuffer<float> audio(2, 256);
+    juce::MidiBuffer midi;
+    double notchEnergy = 0, otherEnergy = 0;
+    int pos = 0;
+    for (int block = 0; block < 100; ++block)
+    {
+        for (int i = 0; i < 256; ++i, ++pos)
+        {
+            audio.setSample(0, i,
+                            float(0.1 * std::sin(2 * juce::MathConstants<double>::pi * 2000 * pos / 48000)));
+            audio.setSample(1, i,
+                            float(0.1 * std::sin(2 * juce::MathConstants<double>::pi * 500 * pos / 48000)));
+        }
+        {
+            test::RealtimeGuard guard;
+            p.processBlock(audio, midi);
+        }
+        REQUIRE(test::realtimeAllocations == 0);
+        if (block >= 80)
+            for (int i = 0; i < 256; ++i)
+            {
+                notchEnergy += double(audio.getSample(0, i)) * audio.getSample(0, i);
+                otherEnergy += double(audio.getSample(1, i)) * audio.getSample(1, i);
+            }
+    }
+    REQUIRE(std::sqrt(notchEnergy / (20 * 256)) < 0.005);
+    REQUIRE(std::sqrt(otherEnergy / (20 * 256)) > 0.04);
+}

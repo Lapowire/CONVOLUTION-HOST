@@ -181,25 +181,28 @@ void CurveEditor::refresh()
         onSelection();
     repaint();
 }
-void CurveEditor::moveNode(float f, float v)
+void CurveEditor::moveNode(float f, float v, bool editFrequency, bool editValue)
 {
+    requested = controller.current();
     if (frequency(selected) >= rate * 0.5)
         return;
     f = juce::jlimit(20.f, float(std::min(20000., rate * 0.499)), f);
     if (mode == CurveMode::postEq)
     {
         auto prefix = "peq" + juce::String(selected);
-        controller.setParameter(prefix + "Freq", f);
-        if (requested.eq.bands[std::size_t(selected)].type != EqType::notch)
+        if (editFrequency)
+            controller.setParameter(prefix + "Freq", f);
+        if (editValue && requested.eq.bands[std::size_t(selected)].type != EqType::notch)
             controller.setParameter("eq" + juce::String(selected), v);
     }
     else
     {
         float lo = selected ? frequency(selected - 1) + 0.2f : 20.f,
               hi = selected < 5 ? frequency(selected + 1) - 0.2f : float(std::min(20000., rate * 0.499));
-        if (lo <= hi)
+        if (editFrequency && lo <= hi)
             controller.setParameter("damp" + juce::String(selected) + "Freq", juce::jlimit(lo, hi, f));
-        controller.setParameter("damp" + juce::String(selected) + "Rate", juce::jlimit(0.f, 60.f, v));
+        if (editValue)
+            controller.setParameter("damp" + juce::String(selected) + "Rate", juce::jlimit(0.f, 60.f, v));
     }
     refresh();
 }
@@ -246,6 +249,7 @@ void CurveEditor::mouseDoubleClick(const juce::MouseEvent &)
 }
 void CurveEditor::mouseWheelMove(const juce::MouseEvent &, const juce::MouseWheelDetails &w)
 {
+    requested = controller.current();
     if (mode == CurveMode::postEq && frequency(selected) < rate * 0.5)
     {
         controller.setParameter("peq" + juce::String(selected) + "Q",
@@ -261,6 +265,7 @@ bool CurveEditor::keyPressed(const juce::KeyPress &key)
         selectNode(selected + (k == juce::KeyPress::pageUpKey ? -1 : 1));
         return true;
     }
+    requested = controller.current();
     float f = frequency(selected), v = value(selected);
     if (k == juce::KeyPress::leftKey)
         f /= 1.02f;
@@ -273,7 +278,8 @@ bool CurveEditor::keyPressed(const juce::KeyPress &key)
     else
         return false;
     controller.beginGesture();
-    moveNode(f, v);
+    moveNode(f, v, k == juce::KeyPress::leftKey || k == juce::KeyPress::rightKey,
+             k == juce::KeyPress::upKey || k == juce::KeyPress::downKey);
     controller.endGesture();
     return true;
 }

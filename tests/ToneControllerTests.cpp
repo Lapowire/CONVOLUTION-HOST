@@ -76,3 +76,48 @@ TEST(tone_host_gestures_are_balanced_and_unchanged_values_are_silent)
     REQUIRE(listener.values >= 2);
     parameter->removeListener(&listener);
 }
+TEST(panel_reset_does_not_write_concurrent_automation_in_other_panel)
+{
+    struct Listener : juce::AudioProcessorParameter::Listener
+    {
+        juce::RangedAudioParameter *other = nullptr;
+        float target = 0;
+        void parameterValueChanged(int, float) override
+        {
+            other->setValueNotifyingHost(other->convertTo0to1(target));
+        }
+        void parameterGestureChanged(int, bool) override {}
+    } listener;
+    ch::PluginProcessor p(juce::File{});
+    auto &controller = p.toneController();
+    controller.setParameter("eq5", 6);
+    controller.setParameter("damp0Rate", 12);
+    auto *eq = p.parameters.getParameter("eq5");
+    auto *damping = p.parameters.getParameter("damp0Rate");
+    listener.other = damping;
+    listener.target = 25;
+    eq->addListener(&listener);
+    controller.resetEq();
+    eq->removeListener(&listener);
+    test::near(controller.current().damping.nodes[0].attenuationDbPerSecond, 25);
+    listener.other = eq;
+    listener.target = 9;
+    damping->addListener(&listener);
+    controller.resetDamping();
+    damping->removeListener(&listener);
+    test::near(controller.current().eq.gainDb[5], 9);
+}
+TEST(tone_history_has_a_bounded_128_gesture_capacity)
+{
+    ch::PluginProcessor p(juce::File{});
+    auto &controller = p.toneController();
+    for (int i = 0; i < 129; ++i)
+        controller.setParameter("eq0", i % 2 ? -6 : 6);
+    for (int i = 0; i < 128; ++i)
+    {
+        REQUIRE(controller.canUndo());
+        controller.undo();
+    }
+    REQUIRE(!controller.canUndo());
+    test::near(controller.current().eq.gainDb[0], 6);
+}

@@ -49,9 +49,11 @@ TEST(parametric_eq_extreme_automation_is_finite_and_allocation_free)
         ch::ParametricEq eq;
         eq.prepare(sr, 16);
         ch::EqSettings s;
-        juce::AudioBuffer<float> b(16, 37);
+        juce::AudioBuffer<float> b(16, 1024);
         for (int k = 0; k < 300; ++k)
         {
+            const int frames = std::array<int, 5>{1, 37, 64, 256, 1024}[std::size_t(k % 5)];
+            b.setSize(16, frames, false, false, true);
             for (int i = 0; i < 10; ++i)
             {
                 s.bands[i].frequencyHz = k % 2 ? 20 : 20000;
@@ -70,7 +72,7 @@ TEST(parametric_eq_extreme_automation_is_finite_and_allocation_free)
             }
             REQUIRE(test::realtimeAllocations == 0);
             for (int c = 0; c < 16; ++c)
-                for (int i = 0; i < 37; ++i)
+                for (int i = 0; i < frames; ++i)
                     REQUIRE(std::isfinite(b.getSample(c, i)));
         }
     }

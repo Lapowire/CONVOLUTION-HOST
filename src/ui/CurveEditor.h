@@ -34,7 +34,7 @@ class CurveEditor final : public juce::Component
     float valueFor(float) const;
     float frequency(int) const;
     float value(int) const;
-    void moveNode(float, float);
+    void moveNode(float, float, bool editFrequency = true, bool editValue = true);
     void refresh();
     ToneController &controller;
     CurveMode mode;

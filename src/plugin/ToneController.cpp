@@ -235,19 +235,25 @@ void ToneController::copySlot(int from, int to)
 void ToneController::resetEq()
 {
     std::lock_guard lock(mutex);
-    auto state = current();
-    state.eq = {};
     beginGesture();
-    applyState(state);
+    for (auto value : ToneState{}.parametersTree())
+    {
+        auto id = value["id"].toString();
+        if (id.startsWith("eq") || id.startsWith("peq"))
+            setParameter(id, float(value["value"]));
+    }
     endGesture();
 }
 void ToneController::resetDamping()
 {
     std::lock_guard lock(mutex);
-    auto state = current();
-    state.damping = {};
     beginGesture();
-    applyState(state);
+    for (auto value : ToneState{}.parametersTree())
+    {
+        auto id = value["id"].toString();
+        if (id.startsWith("damp"))
+            setParameter(id, float(value["value"]));
+    }
     endGesture();
 }
 } // namespace ch
