@@ -76,8 +76,14 @@ e ACN/SN3D tramite una copia generata; VST3 verifica 9 layout canonici reali.
 AAX supera compilazione e controllo degli entrypoint, ma non è firmato Avid/PACE
 né provato in Pro Tools. Le build macOS non sono Developer ID firmate/notarizzate;
 la slice Intel è compilata e controllata, senza esecuzione su un host Intel.
-Nessuna prova in una sessione DAW con hardware audio, TSan o misura del picco
-RSS del processo. I manifest distinguono build, test e validazione nella DAW.
+Nessuna prova in una sessione DAW con hardware audio o TSan. I manifest
+distinguono build, test e validazione nella DAW.
+
+Una [misura RSS locale successiva](resource-validation.md) registra 607,1 MiB
+per l'intera suite core e 43,8 MiB per processor/editor, con 67/67 casi superati.
+Il picco non è attribuito a un singolo scenario né al solo motore. Il caso a
+16 canali impiega 459 ms per 539 ms di audio su questa macchina condivisa;
+restano da verificare le scadenze dei singoli callback e il carico in una DAW.
 
 Gli SDK AAX e VST3 sono inclusi nel JUCE fissato. Non sono presenti certificati o
 credenziali di firma nelle consegne. Le [licenze](dependency-licenses.md)

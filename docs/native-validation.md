@@ -60,3 +60,7 @@ baseline ABI propria, indicata nel manifest (GLIBC 2.38, GLIBCXX 3.4.32).
 I certificati e le credenziali di firma non sono inclusi nei sorgenti né nei
 pacchetti. Le [decisioni e correzioni](review-and-build-decisions.md) documentano
 le differenze rispetto ai piani iniziali.
+
+La successiva [verifica locale delle risorse](resource-validation.md) misura
+il picco RSS delle suite core e processor/editor, con 67/67 casi superati.
+Non sostituisce il collaudo delle scadenze realtime nelle DAW.
